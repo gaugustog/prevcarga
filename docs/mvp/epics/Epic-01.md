@@ -11,7 +11,7 @@
 
 ## 🎯 Epic Goal
 
-Build a robust, scalable data infrastructure layer capable of loading, validating, preprocessing, and cataloging electric load forecasting data from AWS S3. This layer serves as the foundation for all subsequent model training and prediction workflows.
+Build a robust, scalable data infrastructure layer capable of loading, validating, preprocessing, and cataloging electric load forecasting data from multiple storage backends (AWS S3 and local filesystem). This layer serves as the foundation for all subsequent model training and prediction workflows, enabling seamless local development and cloud deployment.
 
 ---
 
@@ -20,7 +20,7 @@ Build a robust, scalable data infrastructure layer capable of loading, validatin
 ### Scope
 
 This epic encompasses the complete Data Layer implementation, including:
-- **Multi-source S3 loaders** for:
+- **Multi-source unified loaders** supporting both S3 and local filesystem for:
   - Electric load data (semi-hourly granularity)
   - Temperature forecasts (D+1, D+2, ECMWF, weighted)
   - Heat index data (apparent temperature)
@@ -62,7 +62,7 @@ Based on comprehensive analysis of both LGBM and Random Forest implementations:
 
 ### Technical Approach
 
-- **Storage**: AWS S3 with Parquet format for efficient columnar storage (+ CSV fallback)
+- **Storage**: Unified backend abstraction supporting AWS S3 (production) and local filesystem (development) with Parquet format for efficient columnar storage (+ CSV fallback)
 - **Validation**: Pydantic V2 schemas with type checking, business rule validation, and continuity checks
 - **Processing**: Pandas/NumPy for data manipulation with optimized memory usage and chunked processing
 - **Architecture**: Interface-based design with loader, validator, preprocessor, and transformer components
@@ -82,28 +82,34 @@ Based on comprehensive analysis of both LGBM and Random Forest implementations:
 
 ## 👥 User Stories
 
-### **User Story 1.1: Load Raw Load Data from S3**
+### **User Story 1.1: Load Raw Load Data from Storage**
 
 **As a** data scientist  
-**I want to** load historical electric load data from S3  
-**So that** I can use it for model training and evaluation
+**I want to** load historical electric load data from any storage backend (S3 or local)  
+**So that** I can develop locally and deploy to production without code changes
 
 **Acceptance Criteria:**
-- [ ] Load Parquet files from S3 paths following pattern: `s3://bucket/raw_data/{year}/{month}/carga_horaria_{cod_area}_{YYYYMMDD}.parquet`
+- [ ] Load Parquet files from unified paths following pattern: `raw_data/load/{area}/{YYYY}/{MM}/{YYYYMMDD}.parquet`
+- [ ] Support ML-optimized consolidated files: `processed/load/area_code={area}/year={YYYY}/data.parquet`
+- [ ] Auto-detect storage backend from configuration or path prefix (s3://, file://, or relative)
+- [ ] Support S3 backend: `s3://bucket/raw_data/...`
+- [ ] Support local backend: `./data/raw_data/...` or `/absolute/path/raw_data/...`
 - [ ] Support filtering by area codes (e.g., "RJ", "SP", "SECO")
 - [ ] Support filtering by date ranges (start_date, end_date)
 - [ ] Handle missing files gracefully with informative error messages
-- [ ] Return pandas DataFrame with standardized columns: `[timestamp, cod_area, carga_mwh]`
+- [ ] Return pandas DataFrame with standardized columns: `[timestamp, area_code, load_mwh]`
 - [ ] Support batch loading of multiple areas/dates in parallel
 - [ ] Load performance: <5s for 1 year of data (1 area)
+- [ ] CLI supports `--storage-backend` flag to override config
 
 **Tasks:**
-1. Create `S3ParquetLoader` class with boto3 integration
-2. Implement `load_carga()` method with date/area filtering
-3. Add connection pooling for S3 client
-4. Implement parallel loading using ThreadPoolExecutor
-5. Add retry logic with exponential backoff
-6. Create unit tests with moto (S3 mocking)
+1. Create `DataLoader` class using `StorageBackend` abstraction from Epic-00
+2. Implement `load_load()` method with date/area filtering, backend-agnostic
+3. Add connection pooling for S3 backend
+4. Implement parallel loading using ThreadPoolExecutor (for both backends)
+5. Add retry logic with exponential backoff (S3 backend)
+6. Create path resolver to handle s3://, file://, and relative paths
+7. Create unit tests with moto (S3 mocking) and local filesystem fixtures
 
 **Definition of Done:**
 - Code implemented and committed
@@ -120,37 +126,38 @@ Based on comprehensive analysis of both LGBM and Random Forest implementations:
 **So that** downstream components can assume data quality
 
 **Acceptance Criteria:**
-- [ ] Pydantic schemas defined for: 
-  - Load (`CargaSchema`): `val_cargaglobalcons`, `val_cargammgd`
-  - Temperature (`TemperaturaSchema`): Multiple sources (D+1, D+2, ECMWF, weighted)
-  - Heat Index (`HeatIndexSchema`): Apparent temperature values
-  - Holidays (`FeriadoSchema`): `id_tipodiaespecial`, `dat_diaespecial`
-- [ ] Validation checks include: 
+- [ ] Pydantic schemas defined for:
+  - Load (`LoadSchema`): `timestamp`, `area_code`, `load_mwh`
+  - Weather Observed (`WeatherObservedSchema`): `timestamp`, `area_code`, `temperature`, `heat_index`
+  - Weather Forecast (`WeatherForecastSchema`): `issue_time`, `valid_time`, `area_code`, `temperature`
+  - Holidays (`HolidaySchema`): `date`, `area_code`, `holiday_type_id`, `special_day_code`
+  - Prediction Results (`PredictionResultSchema`): `run_time`, `step`, `target_time`, `predicted_load`
+- [ ] Validation checks include:
   - Data types and required columns
   - Value ranges: load > 0, temperature -10°C to 50°C, heat index 15°C to 55°C
   - Timestamp continuity (30-min or 60-min intervals)
   - Complete day validation (48 semi-hourly or 24 hourly records per day)
-- [ ] Business rules validated: 
+- [ ] Business rules validated:
   - Load values non-negative
   - Temperatures within Brazil climate range
-  - No duplicate (timestamp, cod_area) pairs
+  - No duplicate (timestamp, area_code) pairs
   - Chronological ordering within area
+  - Forecast issue_time before valid_time
 - [ ] Invalid records logged with details but don't stop pipeline
 - [ ] Validation summary report generated (counts of valid/invalid records)
 - [ ] Performance: <2s validation overhead for 100k records
 
 **Tasks:**
-1. Define `CargaSchema` with fields: timestamp (datetime), cod_area (str), val_cargaglobalcons (float > 0), val_cargammgd (float >= 0)
-2. Define `TemperaturaSchema` with temperature range validation and source field
-3. Define `HeatIndexSchema` with apparent temperature validation
-4. Define `FeriadoSchema` with holiday type enumeration and `id_tipodiaespecial`
-5. Implement `DataValidator` class with bulk validation
-6. Add custom validators for timestamp continuity detection (30-min intervals)
-7. Add complete day validator (48 records check)
-8. Create validation report generator with statistics
-9. Write comprehensive schema tests with valid/invalid samples
-6. Create validation report generator
-7. Write comprehensive schema tests
+1. Define `LoadSchema` with fields: timestamp (datetime), area_code (str), load_mwh (float > 0)
+2. Define `WeatherObservedSchema` with temperature range validation
+3. Define `WeatherForecastSchema` with issue_time/valid_time provenance
+4. Define `HolidaySchema` with holiday type enumeration
+5. Define `PredictionResultSchema` for operational outputs
+6. Implement `DataValidator` class with bulk validation
+7. Add custom validators for timestamp continuity detection (30-min intervals)
+8. Add complete day validator (48 records check)
+9. Create validation report generator with statistics
+10. Write comprehensive schema tests with valid/invalid samples
 
 **Definition of Done:**
 - All schemas implemented with Pydantic V2
@@ -223,21 +230,22 @@ Based on comprehensive analysis of both LGBM and Random Forest implementations:
 
 **Acceptance Criteria:**
 - [ ] `DataCatalog` class for dataset registration and discovery
-- [ ] Metadata stored includes: name, version, S3 path, schema, date range, row count, creation timestamp
+- [ ] Metadata stored includes: name, version, storage path (unified), schema, date range, row count, creation timestamp
 - [ ] Support searching datasets by area, date range, version
-- [ ] Persist catalog to S3 as JSON or Parquet
+- [ ] Persist catalog to configured storage backend (S3 or local) as JSON or Parquet
 - [ ] Support dataset versioning with semantic versioning
 - [ ] API methods: `register()`, `get()`, `list()`, `delete()`
 - [ ] Thread-safe for concurrent registrations
+- [ ] Storage backend configurable via DataCatalog initialization
 
 **Tasks:**
 1. Design catalog schema with Pydantic: `DatasetMetadata`
-2. Implement `DataCatalog` class with in-memory cache
-3. Add S3 persistence layer (JSON storage)
+2. Implement `DataCatalog` class with in-memory cache and `StorageBackend` dependency
+3. Add persistence layer using `StorageBackend` abstraction (JSON storage)
 4. Implement search and filter methods
 5. Add versioning support with `SemanticVersion` integration
 6. Create thread-safe lock mechanism
-7. Write tests for concurrent access patterns
+7. Write tests for concurrent access patterns (both S3 and local backends)
 
 **Definition of Done:**
 - Catalog can store/retrieve 1000+ dataset entries
@@ -281,42 +289,42 @@ Based on comprehensive analysis of both LGBM and Random Forest implementations:
 
 ---
 
-### **User Story 1.6: Load Temperature and Holiday Data**
+### **User Story 1.6: Load Weather and Holiday Data**
 
-**As a** data pipeline  
-**I want to** load auxiliary data (temperature forecasts, heat index, holidays)  
+**As a** data pipeline
+**I want to** load auxiliary data (observed weather, forecast weather, holidays)
 **So that** feature engineering can access all required inputs
 
 **Acceptance Criteria:**
-- [ ] Load temperature forecast D+1 data from: `temperatura_d1_{cod_area}_{YYYYMMDD}.parquet`
-- [ ] Load temperature forecast D+2 data from: `temperatura_d2_{cod_area}_{YYYYMMDD}.parquet`
-- [ ] Load ECMWF temperature from: `heatindex_{cod_area}.csv` (Temperatura_ECMWF field)
-- [ ] Load heat index from: `heatindex_{cod_area}.csv` (Heatindex field)
-- [ ] Load holiday calendar from: `feriados_{year}.parquet`
-- [ ] Temperature data returns DataFrame: `[timestamp, cod_area, temp_celsius, source]`
-- [ ] Heat index returns DataFrame: `[timestamp, cod_area, heat_index]`
-- [ ] Holiday data returns DataFrame: `[date, holiday_name, holiday_type, id_tipodiaespecial, affected_areas]`
-- [ ] Support joining load, temperature, heat index, and holiday data on timestamp/area
-- [ ] Handle missing temperature forecasts with lag fill (24/48h) + interpolation
-- [ ] Support both CSV and Parquet formats for heat index data
-- [ ] Performance: <3s to load all auxiliary data for 1 year
+- [ ] Load observed weather from: `raw_data/weather/observed/{area}/{YYYY}/{MM}/{YYYYMMDD}.parquet`
+- [ ] Support ML-optimized: `processed/weather/observed/area_code={area}/year={YYYY}/data.parquet`
+- [ ] Load forecast weather from: `raw_data/weather/forecast/{area}/{YYYY}/{MM}/{YYYYMMDD}.parquet`
+- [ ] Support ML-optimized: `processed/weather/forecast/area_code={area}/year={YYYY}/data.parquet`
+- [ ] Load holiday calendar from: `raw_data/auxiliary/holidays/holidays_{year}.parquet`
+- [ ] All weather data at semi-hourly resolution (interpolated via cubic spline during migration)
+- [ ] Observed weather returns DataFrame: `[timestamp, area_code, temperature, heat_index]`
+- [ ] Forecast weather returns DataFrame: `[issue_time, valid_time, area_code, temperature, heat_index]`
+- [ ] Holiday data returns DataFrame: `[date, area_code, holiday_type_id, prevcarga_code, simplified_code]`
+- [ ] Support `as_of` parameter for backtesting (only use forecasts available at that time)
+- [ ] Performance: <3s to load all auxiliary data for 1 year (from consolidated files)
 
 **Tasks:**
-1. Extend `S3ParquetLoader` with `load_temperatura_d1_d2()` method (LGBM approach)
-2. Keep `load_temperatura()` method for Random Forest weighted temperature
-3. Add `load_heat_index()` method supporting CSV/Parquet
-4. Add `load_feriados()` method with year filtering
-5. Implement `DataJoiner` utility for multi-source joins
-6. Add lag fill fallback mechanism for missing temperature data (24/48h)
-7. Create holiday type enumeration and special period detection
-8. Write integration tests with all data types
-9. Add performance benchmarks for multi-source loading
+1. Implement `load_weather_observed()` method for training data
+2. Implement `load_weather_forecast()` method with `as_of` support for backtesting
+3. Add `load_holidays()` method with year filtering
+4. Implement `DataJoiner` utility for multi-source joins
+5. Add lag fill fallback mechanism for missing weather data (24/48h)
+6. Create holiday type enumeration and special period detection
+7. Write integration tests with all data types (S3 mocked, local filesystem)
+8. Add performance benchmarks for multi-source loading (both backends)
+9. Ensure path resolution works for both backends transparently
 
 **Definition of Done:**
-- All auxiliary data loading functions implemented (4 temperature sources + heat index + holidays)
+- All auxiliary data loading functions implemented (weather observed, weather forecast, holidays)
+- `as_of` parameter enables proper backtesting without look-ahead bias
 - Join operations preserve data integrity across all sources
-- Missing data fallbacks working (lag fill for temperature, defaults for holidays)
-- Multi-format support (CSV + Parquet) working
+- Missing data fallbacks working (lag fill for weather, defaults for holidays)
+- Multi-format support (CSV + Parquet) working for legacy migration
 - Tests covering edge cases (missing files, partial data, format mismatches)
 - Documentation with data format specifications for each source
 - Integration test loading all data types simultaneously
@@ -325,21 +333,154 @@ Based on comprehensive analysis of both LGBM and Random Forest implementations:
 
 ## 🏗️ Technical Architecture
 
-### Data Sources and Loading Patterns (From R Implementation Analysis)
+### Unified Data Structure
+
+The data infrastructure follows a unified hierarchy supporting both S3 and local filesystem backends.
+**All time series data is standardized to semi-hourly (30-minute) resolution.**
+
+```
+data/
+│
+├── raw_data/                                    # Daily files for ingestion/updates
+│   │
+│   ├── load/                                   # Electric load data (semi-hourly only)
+│   │   └── {area}/
+│   │       └── {YYYY}/{MM}/
+│   │           └── {YYYYMMDD}.parquet          # 48 rows per day
+│   │           # Schema: timestamp, area_code, load_mwh
+│   │
+│   ├── weather/                                # Meteorological data (semi-hourly, interpolated)
+│   │   ├── observed/                           # Actual measurements
+│   │   │   └── {area}/
+│   │   │       └── {YYYY}/{MM}/
+│   │   │           └── {YYYYMMDD}.parquet      # ~47 rows (interpolated)
+│   │   │           # Schema: timestamp, area_code, temperature, heat_index
+│   │   │
+│   │   └── forecast/                           # Forecasted values
+│   │       └── {area}/
+│   │           └── {YYYY}/{MM}/
+│   │               └── {YYYYMMDD}.parquet
+│   │               # Schema: issue_time, valid_time, area_code, temperature, heat_index
+│   │
+│   └── auxiliary/                              # Reference data
+│       ├── holidays/
+│       │   └── holidays_{year}.parquet
+│       │   # Schema: date, area_code, holiday_type_id, prevcarga_code, simplified_code
+│       │
+│       ├── load_tiers/                         # Patamares
+│       │   └── load_tiers_{area}.parquet
+│       │   # Schema: hour, weekday_winter, weekend_winter, ...
+│       │
+│       └── dst_periods/                        # Daylight saving time
+│           └── dst_periods.parquet
+│           # Schema: start_date, end_date
+│
+├── processed/                                   # ML-ready, consolidated yearly files
+│   │                                           # (Hive-style partitioning for efficient reads)
+│   ├── load/
+│   │   └── area_code={area}/
+│   │       └── year={YYYY}/
+│   │           └── data.parquet                # ~17,520 rows per year
+│   │
+│   └── weather/
+│       ├── observed/
+│       │   └── area_code={area}/
+│       │       └── year={YYYY}/
+│       │           └── data.parquet
+│       │
+│       └── forecast/
+│           └── area_code={area}/
+│               └── year={YYYY}/
+│                   └── data.parquet
+│
+├── features/                                   # Engineered features
+│   └── {model_type}/                           # lgbm, random_forest
+│       └── {version}/                          # v1.0.0, v1.1.0
+│           └── {area}/
+│               ├── train_{YYYYMMDD}.parquet
+│               └── inference_{YYYYMMDD}.parquet
+│
+├── models/                                     # Trained model artifacts
+│   └── {model_type}/
+│       └── {version}/
+│           ├── metadata.yaml                   # Training params, metrics
+│           ├── model.pkl                       # Serialized model
+│           ├── scaler.pkl                      # Feature scaler
+│           ├── feature_names.json              # Feature list
+│           └── latest -> {version}/            # Symlink to latest
+│
+├── results/                                    # Model outputs
+│   │
+│   ├── predictions/                            # Operational forecasts
+│   │   └── {area}/
+│   │       └── {model_type}/
+│   │           └── {YYYY}/{MM}/
+│   │               └── pred_{YYYYMMDD}.parquet
+│   │               # Schema:
+│   │               #   - run_time (datetime, 30min granularity)
+│   │               #   - step (int, 1-10: D+0 to D+9)
+│   │               #   - target_time (datetime)
+│   │               #   - predicted_load (float)
+│   │               #   - updated_at (datetime)
+│   │               # Key: (area, model, run_time, step, target_time) - latest wins
+│   │
+│   ├── backtests/                              # Historical evaluations
+│   │   └── {backtest_id}/
+│   │       ├── config.yaml                     # Backtest parameters
+│   │       ├── metrics_summary.csv             # Aggregated metrics
+│   │       ├── predictions_full.parquet        # All predictions
+│   │       └── report.html                     # Visual report
+│   │
+│   └── reconciled/                             # Hierarchical reconciliation
+│       └── {execution_date}/
+│           ├── individual/                     # Per-area forecasts
+│           ├── combined/                       # Aggregated forecasts
+│           └── reconciled/                     # After reconciliation
+│
+├── cache/                                      # Temporary working data
+│   └── {execution_id}/
+│       ├── intermediate_features/
+│       └── temp_predictions/
+│
+└── catalog/                                    # Metadata & registry
+    ├── datasets.json                           # Dataset registry
+    └── models.parquet                          # Model catalog
+```
+
+---
+
+### Data Sources and Loading Patterns
 
 #### **Data Source Catalog**
 
 Based on comprehensive analysis of LGBM and Random Forest implementations:
 
-| Data Source | Frequency | Storage | Key Fields | Missing Value Strategy | Model Usage |
-|-------------|-----------|---------|------------|----------------------|-------------|
-| **Load (Carga)** | Semi-hourly (30min) | Parquet | `val_cargaglobalcons`, `val_cargammgd`, `DataHora` | Triple-pass imputation | Both |
-| **Temperature D+1** | Hourly → Semi-hourly | Parquet | `ValItemserieoriginal`, `DataHora` | Lag fill (24/48h) + interpolation | LGBM |
-| **Temperature D+2** | Hourly → Semi-hourly | Parquet | `ValItemserieoriginal`, `DataHora` | Lag fill (24/48h) + interpolation | LGBM |
-| **ECMWF Temperature** | Semi-hourly | CSV | `Temperatura_ECMWF`, `timestamp` | Forward/backward fill + interpolation | LGBM |
-| **Heat Index** | Semi-hourly | CSV | `Heatindex`, `timestamp` | Forward/backward fill + interpolation | LGBM |
-| **Temperature Weighted** | Daily (9 days) | Parquet | `temp_max_[1-9]`, `temp_min_[1-9]`, `dataOrigem` | Fallback to previous day forecast | Random Forest |
-| **Holidays** | Daily | Parquet/API | `id_tipodiaespecial`, `dat_diaespecial` | Default to 0 (no holiday) | Both |
+| Data Source | Frequency | Storage | Key Fields (English) | Missing Value Strategy | Model Usage |
+|-------------|-----------|---------|---------------------|----------------------|-------------|
+| **Load** | Semi-hourly (30min) | Parquet | `timestamp`, `area_code`, `load_mwh` | Triple-pass imputation | Both |
+| **Weather Observed** | Semi-hourly (interpolated from hourly) | Parquet | `timestamp`, `area_code`, `temperature`, `heat_index` | Cubic spline interpolation | Training |
+| **Weather Forecast** | Semi-hourly (interpolated from hourly) | Parquet | `issue_time`, `valid_time`, `area_code`, `temperature`, `heat_index` | Cubic spline interpolation | Inference |
+| **Holidays** | Daily | Parquet | `date`, `area_code`, `holiday_type_id`, `prevcarga_code`, `simplified_code` | Default to 0 (no holiday) | Both |
+| **Load Tiers** | Hourly config | Parquet | `hour`, `weekday_winter`, `weekend_winter`, ... | N/A (reference data) | Both |
+| **DST Periods** | Periods | Parquet | `start_date`, `end_date` | N/A (reference data) | Both |
+
+#### **Field Name Mapping (Legacy → New)**
+
+| Legacy (Portuguese) | New (English) | Description |
+|---------------------|---------------|-------------|
+| `cod_areacarga` | `area_code` | Area identifier (SP, RJ, SECO, etc.) |
+| `dat_referencia` | `reference_date` | Reference date |
+| `din_referencia` | `timestamp` | Reference datetime |
+| `din_origemprevisaoutc` | `issue_time` | When forecast was issued |
+| `val_carga` | `load_mwh` | Load value in MWh |
+| `val_tmp` | `temperature` | Temperature in °C |
+| `val_previsaocarga` | `predicted_load` | Predicted load value |
+| `passo` | `step` | Forecast horizon (1-10: D+0 to D+9) |
+| `din_alvo` | `target_time` | Target datetime being predicted |
+| `din_atualizacao` | `updated_at` | Last update timestamp |
+| `id_tipodiaespecial` | `holiday_type_id` | Holiday type identifier |
+| `cod_prevcarga` | `prevcarga_code` | PrevCarga internal code |
+| `dat_diaespecial` | `date` | Special day date |
 
 #### **Critical Implementation Details**
 
@@ -448,11 +589,14 @@ def transform_temperature_wide_to_long(df: pd.DataFrame) -> pd.DataFrame:
 │           Data Layer (src/data/)                │
 │                                                 │
 │  ┌────────────────┐      ┌──────────────────┐ │
-│  │ S3ParquetLoader│──────│  DataValidator   │ │
-│  │                │      │  (Pydantic)      │ │
+│  │   DataLoader   │──────│  DataValidator   │ │
+│  │   (Unified)    │      │  (Pydantic)      │ │
 │  │ - load_carga() │      │                  │ │
 │  │ - load_temp()  │      │ - CargaSchema    │ │
 │  │ - load_feriado │      │ - TempSchema     │ │
+│  │                │      │                  │ │
+│  │ Uses:          │      │                  │ │
+│  │ StorageBackend │      │                  │ │
 │  └────────────────┘      └──────────────────┘ │
 │           │                       │            │
 │           ▼                       ▼            │
@@ -483,7 +627,7 @@ def transform_temperature_wide_to_long(df: pd.DataFrame) -> pd.DataFrame:
 
 ```mermaid
 graph TD
-    A[S3 Raw Data] -->|boto3| B[S3ParquetLoader]
+    A[Storage Backend<br/>S3 or Local] -->|StorageBackend| B[DataLoader]
     A1[Multi-Source Temps] -->|D+1, D+2, ECMWF| B
     A2[Heat Index CSV] -->|CSV/Parquet| B
     A3[Holidays API/File] --> B
@@ -520,7 +664,7 @@ graph TD
 
 **Pipeline Stages:**
 
-1. **Loading (Multi-Source):** S3ParquetLoader handles 7 data sources
+1. **Loading (Multi-Source):** DataLoader with unified StorageBackend handles 7 data sources (S3 or local)
 2. **Validation (Schema):** Pydantic validation with continuity checks
 3. **Timezone (Standardization):** Convert to America/Sao_Paulo, adjust timestamps
 4. **Resampling (Frequency):** Hourly↔Semi-hourly conversion
@@ -562,28 +706,114 @@ graph TD
 ```
 src/data/
 ├── __init__.py
-├── loaders.py              # S3ParquetLoader, LocalLoader, DataJoiner, MultiFormatLoader
-├── validators.py           # CargaSchema, TemperaturaSchema, HeatIndexSchema, FeriadoSchema, DataValidator
-├── preprocessors.py        # ImputerChain, ForwardFillImputer, BackwardFillImputer, LagFillImputer, InterpolationImputer, ResamplerMixin, CompleteDayFilter
+├── loaders.py              # DataLoader (unified), DataJoiner, MultiFormatLoader
+├── schemas.py              # LoadSchema, WeatherObservedSchema, WeatherForecastSchema,
+│                           # HolidaySchema, PredictionResultSchema, VALID_AREA_CODES
+├── validators.py           # DataValidator, bulk validation utilities
+├── preprocessors.py        # ImputerChain, TriplePassImputer, LagFillImputer,
+│                           # ResamplerMixin, CompleteDayFilter
 ├── catalog.py              # DataCatalog, DatasetMetadata
-└── utils.py                # S3Utils, PathResolver, DateRangeGenerator, TimezoneHandler
+├── results.py              # PredictionResultWriter, BacktestManager
+└── utils.py                # PathResolver, DateRangeGenerator, TimezoneHandler
+
+src/data/migration/          # Legacy data migration utilities
+├── __init__.py
+├── legacy_loader.py        # Load from old CARGAHIST, TEMPHIST format
+└── converter.py            # Convert legacy → new format
 
 tests/data/
 ├── __init__.py
 ├── test_loaders.py         # Unit tests for all loaders
-├── test_validators.py      # Schema validation tests
+├── test_schemas.py         # Schema validation tests (English names)
 ├── test_preprocessors.py   # Imputation and resampling tests (including triple-pass)
 ├── test_catalog.py         # Catalog operations tests
+├── test_results.py         # Prediction result storage tests
 ├── test_integration.py     # End-to-end data pipeline tests
 ├── test_complete_day_filter.py  # Complete day filtering tests
+├── test_migration.py       # Legacy migration tests
 └── fixtures/
-    ├── sample_carga.parquet
-    ├── sample_temp_d1.parquet
-    ├── sample_temp_d2.parquet
-    ├── sample_temp_weighted.parquet  # For Random Forest
-    ├── sample_heat_index.csv
-    ├── sample_feriados.parquet
-    └── incomplete_days.parquet  # For testing complete day filter
+    ├── sample_load.parquet
+    ├── sample_weather_obs.parquet
+    ├── sample_weather_fcst.parquet
+    ├── sample_holidays.parquet
+    ├── sample_predictions.parquet
+    ├── incomplete_days.parquet
+    └── legacy/              # Legacy format samples for migration tests
+        ├── CARGAHIST.csv.gz
+        ├── TEMPHIST.csv.gz
+        └── TEMPPREVHIST.csv.gz
+```
+
+---
+
+### Legacy Data Migration
+
+The system supports migration from the legacy format (per-area CSV.gz files) to the new unified structure.
+**All data is standardized to semi-hourly resolution, with cubic spline interpolation for weather data.**
+
+#### Legacy Format (old-data-structure/)
+```
+{area}/
+├── CARGAHIST.csv.gz        → (ignored, use semi-hourly as source of truth)
+├── CARGASHHIST.csv.gz      → raw_data/load/{area}/{YYYY}/{MM}/{YYYYMMDD}.parquet
+├── TEMPHIST.csv.gz         → raw_data/weather/observed/{area}/{YYYY}/{MM}/{YYYYMMDD}.parquet (interpolated)
+├── TEMPPREVHIST.csv.gz     → raw_data/weather/forecast/{area}/{YYYY}/{MM}/{YYYYMMDD}.parquet (interpolated)
+├── FERIADOS.csv.gz         → raw_data/auxiliary/holidays/holidays_{year}.parquet
+├── PATAMARES.csv.gz        → raw_data/auxiliary/load_tiers/load_tiers_{area}.parquet
+├── HORAVERAO.csv.gz        → raw_data/auxiliary/dst_periods/dst_periods.parquet
+└── MDLHISTP{1-10}.csv.gz   → results/predictions/{area}/.../pred_{date}.parquet (historical)
+```
+
+#### Migration Scripts
+
+**Step 1: Migrate legacy data to daily raw files**
+```bash
+# Migrate a single area
+python scripts/migrate_legacy_data.py --source ./old-data-structure --dest ./data --areas SP
+
+# Migrate all areas
+python scripts/migrate_legacy_data.py --source ./old-data-structure --dest ./data --all-areas
+```
+
+**Step 2: Consolidate into ML-ready yearly partitions**
+```bash
+# Consolidate a single area
+python scripts/consolidate_for_ml.py --source ./data --areas SP
+
+# Consolidate all areas
+python scripts/consolidate_for_ml.py --source ./data --all-areas
+
+# Consolidate specific years
+python scripts/consolidate_for_ml.py --source ./data --all-areas --years 2023,2024
+```
+
+#### Weather Data Interpolation
+
+Weather data is originally hourly and is interpolated to semi-hourly using **cubic spline interpolation**:
+- Preserves original hourly values at :00
+- Smoothly interpolates values at :30
+- Maintains physically realistic temperature transitions
+
+```python
+# Example: Interpolated temperature values
+# Original: 22.6°C (00:00), 22.3°C (01:00)
+# After interpolation:
+#   00:00 → 22.600°C (original)
+#   00:30 → 22.308°C (interpolated via cubic spline)
+#   01:00 → 22.300°C (original)
+```
+
+#### ML-Ready Data Loading
+
+After consolidation, load data efficiently using predicate pushdown:
+```python
+import pandas as pd
+
+# Load all SP data from 2022 onwards (reads only relevant partitions)
+df = pd.read_parquet(
+    "data/processed/load",
+    filters=[("area_code", "==", "SP"), ("year", ">=", 2022)]
+)
 ```
 
 ---
@@ -592,80 +822,144 @@ tests/data/
 
 ### Key Classes
 
-#### 1. S3ParquetLoader
+#### 1. DataLoader (Unified Storage)
 
 ```python
 from typing import List, Optional
 import pandas as pd
-import boto3
 from datetime import date, datetime
 from concurrent.futures import ThreadPoolExecutor
+from src.storage.backend import StorageBackend
+from src.storage.factory import StorageFactory
 
-class S3ParquetLoader:
-    """Load Parquet data from S3 with parallel support."""
+class DataLoader:
+    """Load data from any storage backend (S3 or local) with parallel support."""
     
-    def __init__(self, bucket: str, region: str = "us-east-1", max_workers: int = 4):
-        self.bucket = bucket
-        self.s3_client = boto3.client('s3', region_name=region)
+    def __init__(self, storage_backend: Optional[StorageBackend] = None, max_workers: int = 4):
+        """Initialize loader with storage backend.
+        
+        Args:
+            storage_backend: Storage backend instance. If None, creates from config.
+            max_workers: Number of parallel workers for loading.
+        """
+        self.storage = storage_backend or StorageFactory.from_config()
         self.max_workers = max_workers
     
-    def load_carga(
+    def load_load(
         self,
         areas: List[str],
         start_date: date,
         end_date: date,
+        frequency: str = "semihourly",  # "hourly" or "semihourly"
         validate: bool = True
     ) -> pd.DataFrame:
         """
         Load electric load data for specified areas and date range.
-        
+        Works with any storage backend (S3 or local).
+
         Args:
             areas: List of area codes (e.g., ["RJ", "SP"])
             start_date: Start date (inclusive)
             end_date: End date (inclusive)
+            frequency: "hourly" or "semihourly"
             validate: Whether to validate schema
-        
+
         Returns:
-            DataFrame with columns: [timestamp, cod_area, carga_mwh]
+            DataFrame with columns: [timestamp, area_code, load_mwh]
         """
-        # Generate S3 paths for date range
-        paths = self._generate_paths("carga_horaria", areas, start_date, end_date)
-        
-        # Load in parallel
+        prefix = f"load_{frequency}"
+        paths = self._generate_paths(prefix, areas, start_date, end_date)
+
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            dfs = list(executor.map(self._load_single_parquet, paths))
-        
-        # Concatenate and sort
+            dfs = list(executor.map(self._load_single_file, paths))
+
         df = pd.concat([d for d in dfs if d is not None], ignore_index=True)
-        df = df.sort_values(['cod_area', 'timestamp']).reset_index(drop=True)
-        
-        # Validate if requested
+        df = df.sort_values(['area_code', 'timestamp']).reset_index(drop=True)
+
         if validate:
-            from .validators import DataValidator, CargaSchema
-            validator = DataValidator(CargaSchema)
+            from .validators import DataValidator, LoadSchema
+            validator = DataValidator(LoadSchema)
             df = validator.validate(df)
-        
+
         return df
-    
-    def load_temperatura(
+
+    def load_weather_observed(
         self,
         areas: List[str],
         start_date: date,
         end_date: date
     ) -> pd.DataFrame:
-        """Load temperature forecast data."""
-        paths = self._generate_paths("temperatura_prevista", areas, start_date, end_date)
-        
+        """Load observed (actual) meteorological data for training."""
+        paths = self._generate_paths("weather_obs", areas, start_date, end_date,
+                                      base_path="raw_data/weather/observed")
+
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             dfs = list(executor.map(self._load_single_parquet, paths))
-        
+
         df = pd.concat([d for d in dfs if d is not None], ignore_index=True)
-        return df.sort_values(['cod_area', 'timestamp']).reset_index(drop=True)
-    
-    def load_feriados(self, year: int) -> pd.DataFrame:
+        return df.sort_values(['area_code', 'timestamp']).reset_index(drop=True)
+
+    def load_weather_forecast(
+        self,
+        areas: List[str],
+        start_date: date,
+        end_date: date,
+        as_of: Optional[datetime] = None  # For backtesting: only forecasts available at this time
+    ) -> pd.DataFrame:
+        """Load forecasted meteorological data for inference/backtesting."""
+        paths = self._generate_paths("weather_fcst", areas, start_date, end_date,
+                                      base_path="raw_data/weather/forecast")
+
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            dfs = list(executor.map(self._load_single_parquet, paths))
+
+        df = pd.concat([d for d in dfs if d is not None], ignore_index=True)
+
+        # Filter by as_of for proper backtesting (no look-ahead bias)
+        if as_of is not None:
+            df = df[df['issue_time'] <= as_of]
+
+        return df.sort_values(['area_code', 'issue_time', 'valid_time']).reset_index(drop=True)
+
+    def load_holidays(self, year: int) -> pd.DataFrame:
         """Load holiday calendar for specified year."""
-        path = f"raw_data/feriados_{year}.parquet"
+        path = f"raw_data/auxiliary/holidays/holidays_{year}.parquet"
         return self._load_single_parquet(path)
+
+    def save_prediction(
+        self,
+        df: pd.DataFrame,
+        area: str,
+        model_type: str,
+        run_date: date
+    ) -> str:
+        """
+        Save prediction results (upsert by run_time - latest wins).
+
+        Args:
+            df: DataFrame with PredictionResultSchema columns
+            area: Area code
+            model_type: Model type (lgbm, random_forest)
+            run_date: Date of the run
+
+        Returns:
+            Path where data was saved
+        """
+        path = f"results/predictions/{area}/{model_type}/{run_date.year}/{run_date.month:02d}/pred_{run_date.strftime('%Y%m%d')}.parquet"
+
+        # Load existing, merge (latest wins), save
+        existing = self._load_single_parquet(path)
+        if existing is not None:
+            combined = pd.concat([existing, df], ignore_index=True)
+            # Keep latest by (area_code, run_time, step, target_time)
+            combined = combined.sort_values('updated_at').drop_duplicates(
+                subset=['area_code', 'run_time', 'step', 'target_time'],
+                keep='last'
+            )
+            df = combined
+
+        self.storage.put(path, df.to_parquet())
+        return path
     
     def _load_single_parquet(self, s3_key: str) -> Optional[pd.DataFrame]:
         """Load single Parquet file with retry logic."""
@@ -704,60 +998,87 @@ class S3ParquetLoader:
         return paths
 ```
 
-#### 2. DataValidator
+#### 2. DataValidator & Schemas (English)
 
 ```python
 from pydantic import BaseModel, Field, field_validator
-from typing import List
+from typing import List, Optional
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, date
 
-class CargaSchema(BaseModel):
+# Valid area codes (17 areas + 4 subsystems + losses)
+VALID_AREA_CODES = [
+    # Individual areas
+    'RJ', 'SP', 'MG', 'ES', 'MT', 'MS', 'AC', 'RO', 'DF', 'GO',
+    'PR', 'SC', 'RS', 'ALPE', 'PBRN', 'BASE', 'CE', 'PI', 'BAOE',
+    'AM', 'PA', 'MA', 'TON', 'RR', 'AP',
+    # Subsystems
+    'SECO', 'S', 'NE', 'N',
+    # Losses
+    'PESE', 'PES', 'PENE', 'PEN'
+]
+
+class LoadSchema(BaseModel):
     """Schema for electric load data."""
     timestamp: datetime
-    cod_area: str = Field(pattern=r'^[A-Z]{2,6}$')  # Area code: RJ, SP, SECO, etc.
-    carga_mwh: float = Field(gt=0)  # Load must be positive
-    
-    @field_validator('cod_area')
+    area_code: str = Field(pattern=r'^[A-Z]{2,6}$')
+    load_mwh: float = Field(gt=0)  # Load must be positive
+
+    @field_validator('area_code')
     def validate_area_code(cls, v):
-        valid_areas = ['RJ', 'SP', 'MG', 'ES', 'MT', 'MS', 'AC', 'RO', 'DF', 'GO',
-                       'PR', 'SC', 'RS', 'ALPE', 'PBRN', 'BASE', 'CE', 'PI', 'BAOE',
-                       'AM', 'PA', 'MA', 'TO', 'RR', 'AP',
-                       'SECO', 'S', 'NE', 'N',
-                       'PESE', 'PES', 'PENE', 'PEN']
-        if v not in valid_areas:
+        if v not in VALID_AREA_CODES:
             raise ValueError(f"Invalid area code: {v}")
         return v
 
-class TemperaturaSchema(BaseModel):
-    """Schema for temperature forecast data."""
+class WeatherObservedSchema(BaseModel):
+    """Schema for observed (actual) meteorological data."""
     timestamp: datetime
-    cod_area: str = Field(pattern=r'^[A-Z]{2,6}$')
-    temp_celsius: float = Field(ge=-10, le=50)  # Reasonable range
+    area_code: str = Field(pattern=r'^[A-Z]{2,6}$')
+    temperature: float = Field(ge=-10, le=50)  # °C, Brazil climate range
+    heat_index: Optional[float] = Field(default=None, ge=15, le=55)  # °C, apparent temperature
 
-class FeriadoSchema(BaseModel):
-    """Schema for holiday data."""
-    date: datetime
-    holiday_name: str
-    holiday_type: str = Field(pattern=r'^(National|Regional|Municipal)$')
-    affected_areas: List[str]
+class WeatherForecastSchema(BaseModel):
+    """Schema for forecasted meteorological data with provenance."""
+    issue_time: datetime       # When the forecast was made
+    valid_time: datetime       # When the forecast is valid for
+    area_code: str = Field(pattern=r'^[A-Z]{2,6}$')
+    temperature: float = Field(ge=-10, le=50)  # °C
+    heat_index: Optional[float] = Field(default=None, ge=15, le=55)  # °C
+
+class HolidaySchema(BaseModel):
+    """Schema for holiday/special day data."""
+    date: date
+    area_code: str = Field(pattern=r'^[A-Z]{2,6}$')
+    holiday_type_id: int       # id_tipodiaespecial
+    prevcarga_code: int        # cod_prevcarga
+    simplified_code: int       # cod_simplificado (0, 1, 2)
+
+class PredictionResultSchema(BaseModel):
+    """Schema for model prediction results (operational outputs)."""
+    area_code: str = Field(pattern=r'^[A-Z]{2,6}$')
+    model_type: str            # lgbm, random_forest, etc.
+    run_time: datetime         # Origin time (30min granularity)
+    step: int = Field(ge=1, le=10)  # 1=D+0, 2=D+1, ..., 10=D+9
+    target_time: datetime      # Target datetime being predicted
+    predicted_load: float      # MWh
+    updated_at: datetime       # Last update timestamp
 
 class DataValidator:
     """Validate DataFrames against Pydantic schemas."""
-    
+
     def __init__(self, schema: type[BaseModel]):
         self.schema = schema
-    
+
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Validate DataFrame rows against schema.
-        
+
         Returns validated DataFrame with invalid rows removed.
         Logs validation errors.
         """
         valid_rows = []
         invalid_count = 0
-        
+
         for idx, row in df.iterrows():
             try:
                 self.schema(**row.to_dict())
@@ -765,7 +1086,7 @@ class DataValidator:
             except Exception as e:
                 invalid_count += 1
                 logger.warning(f"Invalid row {idx}: {e}")
-        
+
         logger.info(f"Validation: {len(valid_rows)} valid, {invalid_count} invalid rows")
         return df.loc[valid_rows].reset_index(drop=True)
 ```
@@ -940,13 +1261,18 @@ class DataCatalog:
 # tests/data/test_loaders.py
 import pytest
 from moto import mock_s3
-import boto3
 import pandas as pd
-from src.data.loaders import S3ParquetLoader
+import tempfile
+import shutil
+from pathlib import Path
+from src.data.loaders import DataLoader
+from src.storage.factory import StorageFactory
 
 @mock_s3
-def test_load_carga_success():
-    """Test successful load of carga data."""
+def test_load_carga_from_s3():
+    """Test successful load of carga data from S3."""
+    storage_backend = StorageFactory.create(backend_type="s3", bucket="test-bucket")
+    loader = DataLoader(storage_backend=storage_backend)
     # Setup mock S3
     s3 = boto3.client('s3', region_name='us-east-1')
     s3.create_bucket(Bucket='test-bucket')
@@ -971,8 +1297,20 @@ def test_load_carga_success():
     assert result['cod_area'].unique()[0] == 'RJ'
     assert result['carga_mwh'].min() == 1000
 
+def test_load_carga_from_local():
+    """Test successful load of carga data from local filesystem."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Setup test data
+        test_path = Path(tmpdir) / "raw_data" / "2024" / "01"
+        test_path.mkdir(parents=True)
+        # Create test parquet file...
+        
+        storage_backend = StorageFactory.create(backend_type="local", base_path=tmpdir)
+        loader = DataLoader(storage_backend=storage_backend)
+        # Test loading...
+
 @mock_s3
-def test_load_missing_file():
+def test_load_missing_file_s3():
     """Test handling of missing S3 file."""
     s3 = boto3.client('s3', region_name='us-east-1')
     s3.create_bucket(Bucket='test-bucket')
@@ -1121,7 +1459,8 @@ validation:
 
 ### Code Completeness
 - [ ] All 6 user stories implemented
-- [ ] `S3ParquetLoader` with parallel loading and multi-source support
+- [ ] `DataLoader` with unified storage backend (S3 and local) with parallel loading and multi-source support
+- [ ] Integration with Epic-00 `StorageBackend` abstraction
 - [ ] Pydantic schemas for all data types (load, temperature, heat index, holidays)
 - [ ] `ImputerChain` with 4+ strategies (forward fill, backward fill, lag fill, interpolation)
 - [ ] Triple-pass imputation implemented per LGBM analysis
@@ -1168,8 +1507,11 @@ pytest tests/data/ --cov=src/data --cov-report=html
 # Performance benchmarks
 pytest tests/data/test_performance.py -v
 
+# Integration test with local storage (default)
+pytest tests/data/test_integration.py
+
 # Integration test with real S3 (requires credentials)
-pytest tests/data/test_integration.py --s3-bucket=prevcarga-test
+pytest tests/data/test_integration.py --storage-backend=s3 --s3-bucket=prevcarga-test
 
 # Lint data layer code
 ./scripts/lint.sh src/data/
@@ -1199,12 +1541,44 @@ mypy src/data/
 ## 🔗 Dependencies
 
 ### Upstream Dependencies
-- **Epic-00**: Requires S3 bucket configuration and logging setup
+- **Epic-00**: Requires unified `StorageBackend` abstraction and logging setup
 
 ### Downstream Dependencies
 - **Epic-02**: Feature Engineering depends on clean DataFrames from this layer
 - **Epic-03/04**: Models depend on validated, preprocessed data
 - **Epic-08**: Orchestrator uses DataCatalog for dataset discovery
+- **Epic-09A**: CLI commands will use DataLoader for all data operations
+
+### CLI Integration
+The unified storage approach enables CLI commands to work seamlessly with both local and cloud storage:
+
+**Example CLI Usage:**
+```bash
+# Load data from local filesystem
+prevcarga data load --area RJ --start-date 2024-01-01 --end-date 2024-12-31 --storage-backend local
+
+# Load data from S3
+prevcarga data load --area RJ --start-date 2024-01-01 --end-date 2024-12-31 --storage-backend s3
+
+# Validate data (works with any backend)
+prevcarga data validate --path raw_data/2024/01/carga_horaria_RJ_20240101.parquet
+
+# List catalog (from configured backend)
+prevcarga catalog list --filter area=RJ
+
+# Train model with local data
+prevcarga train --model lgbm --data-path ./data/raw_data/ --storage-backend local
+
+# Train model with S3 data
+prevcarga train --model lgbm --data-path s3://bucket/raw_data/ --storage-backend s3
+```
+
+**Key CLI Features Enabled by Unified Storage:**
+- ✅ **Path Transparency**: CLI accepts paths without knowing backend (auto-detected from prefix)
+- ✅ **Config Override**: `--storage-backend` flag overrides config file
+- ✅ **Consistent Interface**: Same command syntax for local and S3
+- ✅ **Development Workflow**: Develop locally, deploy to production without changes
+- ✅ **Testing**: Easy integration testing with local fixtures
 
 ---
 
@@ -1342,7 +1716,7 @@ This contract ensures Epic-02 can focus on feature engineering logic without dat
 
 ---
 
-**Epic Owner:** Data Engineering Team  
-**Stakeholders:** ML Engineering, Data Science, Platform Engineering  
-**Status:** Ready for Implementation  
-**Last Updated:** November 17, 2025 (Updated with R implementation analysis insights)
+**Epic Owner:** Data Engineering Team
+**Stakeholders:** ML Engineering, Data Science, Platform Engineering
+**Status:** Ready for Implementation
+**Last Updated:** November 21, 2025 (Updated with semi-hourly only structure, cubic spline interpolation for weather, Hive-style yearly partitions for ML efficiency, and migration/consolidation scripts)

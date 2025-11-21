@@ -64,26 +64,35 @@ Establish the foundational project infrastructure and development environment fo
 
 ---
 
-### US-00.3: S3 Storage Configuration
+### US-00.3: Unified Storage Configuration (S3 + Local)
 **As a** developer  
-**I want** S3 storage configured and accessible  
-**So that** I can store and retrieve raw data, models, and results
+**I want** a unified storage interface that works with both S3 and local filesystem  
+**So that** I can develop locally and deploy to production without code changes
 
 **Acceptance Criteria:**
-- [ ] AWS credentials configured (via environment variables or AWS CLI)
+- [ ] Abstract `StorageBackend` interface defined with operations: list, get, put, delete, exists
+- [ ] `S3StorageBackend` implementation with boto3 integration
+- [ ] `LocalStorageBackend` implementation for local filesystem
+- [ ] Storage backend auto-detection based on configuration or path prefix
+- [ ] AWS credentials configured (via environment variables or AWS CLI) for S3 backend
 - [ ] S3 bucket created or identified: `prevcarga-bucket-sandbox`
-- [ ] Bucket structure documented (raw_data/, features/, models/, results/, cache/)
-- [ ] boto3 S3 client wrapper created with basic operations (list, get, put, delete)
-- [ ] Connection test script created and passing
-- [ ] S3 configuration module created in `src/storage/`
+- [ ] Local storage base path configurable (default: `./data/`)
+- [ ] Storage structure documented (raw_data/, features/, models/, results/, cache/)
+- [ ] Connection test script works for both backends
+- [ ] Storage configuration module created in `src/storage/`
+- [ ] CLI can specify storage backend via `--storage-backend` flag or config
 
 **Tasks:**
-- [ ] Configure AWS credentials
+- [ ] Create `src/storage/backend.py` with abstract `StorageBackend` interface
+- [ ] Implement `S3StorageBackend` in `src/storage/s3_backend.py`
+- [ ] Implement `LocalStorageBackend` in `src/storage/local_backend.py`
+- [ ] Create `src/storage/factory.py` for backend instantiation
+- [ ] Configure AWS credentials for S3 backend
 - [ ] Create/verify S3 bucket existence
-- [ ] Create `src/storage/s3_client.py` with basic operations
-- [ ] Create `src/storage/config.py` for storage configuration
-- [ ] Write connection test script
-- [ ] Document S3 setup in README
+- [ ] Create `src/storage/config.py` for unified storage configuration
+- [ ] Write connection test script for both backends
+- [ ] Document storage setup in README (both S3 and local)
+- [ ] Add path normalization utilities (handle s3://, file://, and relative paths)
 
 ---
 
@@ -168,8 +177,11 @@ prevcarga/
 │   ├── __init__.py
 │   ├── storage/
 │   │   ├── __init__.py
-│   │   ├── s3_client.py
-│   │   └── config.py
+│   │   ├── backend.py         # Abstract StorageBackend interface
+│   │   ├── s3_backend.py      # S3 implementation
+│   │   ├── local_backend.py   # Local filesystem implementation
+│   │   ├── factory.py         # Backend factory
+│   │   └── config.py          # Storage configuration
 │   ├── utils/
 │   │   ├── __init__.py
 │   │   └── logger.py
@@ -237,12 +249,30 @@ def test_project_initialized():
     """Verify project structure is initialized."""
     assert True
 
-# tests/storage/test_s3_client.py
-def test_s3_client_initialization():
-    """Test S3 client can be initialized."""
-    from src.storage.s3_client import S3Client
-    client = S3Client(bucket_name="test-bucket")
-    assert client is not None
+# tests/storage/test_backends.py
+def test_s3_backend_initialization():
+    """Test S3 backend can be initialized."""
+    from src.storage.s3_backend import S3StorageBackend
+    backend = S3StorageBackend(bucket="test-bucket")
+    assert backend is not None
+
+def test_local_backend_initialization():
+    """Test local backend can be initialized."""
+    from src.storage.local_backend import LocalStorageBackend
+    backend = LocalStorageBackend(base_path="./test-data")
+    assert backend is not None
+
+def test_storage_factory():
+    """Test storage factory creates correct backend."""
+    from src.storage.factory import StorageFactory
+    
+    # Test S3 backend
+    s3_backend = StorageFactory.create(backend_type="s3", bucket="test")
+    assert s3_backend.__class__.__name__ == "S3StorageBackend"
+    
+    # Test local backend
+    local_backend = StorageFactory.create(backend_type="local", base_path="./data")
+    assert local_backend.__class__.__name__ == "LocalStorageBackend"
 ```
 
 ---
@@ -342,16 +372,23 @@ root:
 
 ### config/storage.yaml
 ```yaml
+# Storage backend: 's3' or 'local'
+# Can be overridden via environment variable STORAGE_BACKEND
+backend: local  # Use 'local' for development, 's3' for production
+
+# Common paths for all backends
+paths:
+  raw_data: raw_data/
+  features: features/
+  models: models/
+  results: results/
+  cache: cache/
+
+# S3-specific configuration
 s3:
   bucket: prevcarga-bucket-sandbox
   region: us-east-1
-  
-  paths:
-    raw_data: raw_data/
-    features: features/
-    models: models/
-    results: results/
-    cache: cache/
+  prefix: ""  # Optional prefix for all S3 keys
   
   timeouts:
     connect: 5
@@ -360,6 +397,11 @@ s3:
   retry:
     max_attempts: 3
     mode: adaptive
+
+# Local filesystem configuration
+local:
+  base_path: ./data  # Base directory for local storage
+  create_dirs: true  # Auto-create directories if missing
 ```
 
 ---
@@ -457,8 +499,9 @@ uv sync
 chmod +x scripts/*.sh
 ./scripts/check-all.sh
 
-# 3. Verify S3 access
-uv run python -c "from src.storage.s3_client import S3Client; print('S3 OK')"
+# 3. Verify storage backends
+uv run python -c "from src.storage.factory import StorageFactory; backend = StorageFactory.create('local'); print('Local storage OK')"
+uv run python -c "from src.storage.factory import StorageFactory; backend = StorageFactory.create('s3', bucket='test'); print('S3 storage OK')"
 
 # 4. Verify logging
 uv run python -c "from src.utils.logger import get_logger; logger = get_logger(__name__); logger.info('Test'); print('Logging OK')"
@@ -487,9 +530,19 @@ uv run python -c "from src.utils.logger import get_logger; logger = get_logger(_
 - Epic-01: Data Infrastructure Layer
 - All subsequent epics
 
+**Enables:**
+- Epic-09A: Core CLI Commands (will use unified storage backend for all commands)
+
 **Related Documents:**
 - [MVP Plan](../mvp-plan.md)
 - [Epic Index](index.md)
+
+**CLI Integration Notes:**
+- The unified `StorageBackend` abstraction enables CLI commands to work identically with both local and S3 storage
+- CLI commands (Epic-09A) will accept `--storage-backend` flag to override config
+- Example: `prevcarga train --storage-backend=local --data-path=./data`
+- Example: `prevcarga train --storage-backend=s3 --s3-bucket=my-bucket`
+- Path resolution is automatic: CLI can accept paths like `./data/`, `/absolute/path/`, or `s3://bucket/path`
 
 ---
 

@@ -23,12 +23,13 @@ Implement DataCatalog system for registering, discovering, and tracking datasets
 ## ✅ Acceptance Criteria
 
 - [ ] `DataCatalog` class for dataset registration and discovery
-- [ ] Metadata stored includes: name, version, S3 path, schema, date range, row count, creation timestamp
+- [ ] Metadata stored includes: name, version, storage path (unified), schema, date range, row count, creation timestamp
 - [ ] Support searching datasets by area, date range, version
-- [ ] Persist catalog to S3 as JSON or Parquet
+- [ ] Persist catalog to configured storage backend (S3 or local) as JSON or Parquet
 - [ ] Support dataset versioning with semantic versioning
 - [ ] API methods: `register()`, `get()`, `list()`, `delete()`
 - [ ] Thread-safe for concurrent registrations
+- [ ] Storage backend configurable via DataCatalog initialization
 
 ---
 
@@ -67,13 +68,14 @@ Implement DataCatalog system for registering, discovering, and tracking datasets
 - [ ] Validate version format
 - [ ] Auto-increment patch version option
 
-### 5. Add S3 Persistence
+### 5. Add Storage Backend Persistence
 - [ ] Serialize catalog to JSON
 - [ ] Handle datetime serialization
-- [ ] Upload to S3 after each modification
-- [ ] Download from S3 on initialization
+- [ ] Upload to storage backend after each modification
+- [ ] Download from storage backend on initialization
 - [ ] Handle missing catalog (create new)
-- [ ] Add error handling for S3 operations
+- [ ] Add error handling for storage operations (both S3 and local)
+- [ ] Support StorageBackend interface for flexibility
 
 ### 6. Write Tests
 - [ ] Test dataset registration
@@ -95,9 +97,10 @@ import threading
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 
-import boto3
 from pydantic import BaseModel, Field
 
+from src.storage.backend import StorageBackend
+from src.storage.factory import StorageFactory
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -108,7 +111,7 @@ class DatasetMetadata(BaseModel):
     
     name: str = Field(..., description="Dataset name")
     version: str = Field(..., pattern=r"^\d+\.\d+\.\d+$", description="Semantic version")
-    s3_path: str = Field(..., description="S3 path to dataset")
+    storage_path: str = Field(..., description="Storage path to dataset (S3 or local)")
     schema_type: str = Field(..., description="Schema class name")
     start_date: date = Field(..., description="First date in dataset")
     end_date: date = Field(..., description="Last date in dataset")
@@ -125,25 +128,31 @@ class DatasetMetadata(BaseModel):
 
 
 class DataCatalog:
-    """Registry for dataset metadata with S3 persistence."""
+    """Registry for dataset metadata with unified storage persistence."""
     
-    def __init__(self, s3_bucket: str, catalog_key: str = "catalog/datasets.json") -> None:
+    def __init__(
+        self,
+        storage_backend: Optional[StorageBackend] = None,
+        catalog_path: str = "catalog/datasets.json"
+    ) -> None:
         """
         Initialize data catalog.
         
         Args:
-            s3_bucket: S3 bucket for catalog storage
-            catalog_key: S3 key for catalog JSON file
+            storage_backend: Storage backend for catalog persistence. If None, uses config.
+            catalog_path: Storage path for catalog JSON file
         """
-        self.s3_bucket = s3_bucket
-        self.catalog_key = catalog_key
-        self.s3_client = boto3.client("s3")
+        self.storage = storage_backend or StorageFactory.from_config()
+        self.catalog_path = catalog_path
         self._cache: Dict[str, DatasetMetadata] = {}
         self._lock = threading.Lock()
         
         # Load existing catalog
-        self._load_from_s3()
-        logger.info(f"DataCatalog initialized with {len(self._cache)} datasets")
+        self._load_from_storage()
+        logger.info(
+            f"DataCatalog initialized with {len(self._cache)} datasets "
+            f"(backend: {self.storage.__class__.__name__})"
+        )
     
     def register(self, metadata: DatasetMetadata) -> None:
         """
@@ -159,7 +168,7 @@ class DataCatalog:
                 logger.warning(f"Overwriting existing dataset: {key}")
             
             self._cache[key] = metadata
-            self._persist_to_s3()
+            self._persist_to_storage()
             logger.info(f"Registered dataset: {key} ({metadata.row_count} rows)")
     
     def get(self, name: str, version: str = "latest") -> Optional[DatasetMetadata]:
@@ -280,17 +289,44 @@ from src.data.catalog import DataCatalog, DatasetMetadata
 
 
 @mock_s3
-def test_catalog_register_and_get():
-    """Test dataset registration and retrieval."""
+def test_catalog_with_s3_backend():
+    """Test dataset registration and retrieval with S3 backend."""
     s3 = boto3.client("s3", region_name="us-east-1")
     s3.create_bucket(Bucket="test-bucket")
     
-    catalog = DataCatalog("test-bucket")
+    from src.storage.factory import StorageFactory
+    backend = StorageFactory.create("s3", bucket="test-bucket")
+    catalog = DataCatalog(storage_backend=backend)
     
     metadata = DatasetMetadata(
         name="carga_rj",
         version="1.0.0",
-        s3_path="s3://bucket/path",
+        storage_path="raw_data/2024/01/carga_rj.parquet",
+        schema_type="CargaSchema",
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 1, 31),
+        row_count=1488,
+        areas=["RJ"]
+    )
+    
+    catalog.register(metadata)
+    
+    result = catalog.get("carga_rj", "1.0.0")
+    assert result is not None
+    assert result.name == "carga_rj"
+    assert result.row_count == 1488
+
+
+def test_catalog_with_local_backend(tmp_path):
+    """Test dataset registration and retrieval with local backend."""
+    from src.storage.factory import StorageFactory
+    backend = StorageFactory.create("local", base_path=str(tmp_path))
+    catalog = DataCatalog(storage_backend=backend)
+    
+    metadata = DatasetMetadata(
+        name="carga_rj",
+        version="1.0.0",
+        storage_path="raw_data/2024/01/carga_rj.parquet",
         schema_type="CargaSchema",
         start_date=date(2024, 1, 1),
         end_date=date(2024, 1, 31),

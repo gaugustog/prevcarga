@@ -1,9 +1,9 @@
-# PC-003-00: S3 Storage Configuration
+# PC-003-00: Unified Storage Configuration (S3 + Local)
 
 **Ticket ID:** PC-003-00  
 **Epic:** [Epic-00: Project Foundation & Setup](../epics/Epic-00.md)  
 **User Story:** US-00.3  
-**Story Points:** 5  
+**Story Points:** 8  
 **Priority:** Critical  
 **Assignee:** TBD  
 **Status:** 📝 To Do
@@ -12,22 +12,28 @@
 
 ## 📋 Description
 
-Configure AWS S3 storage infrastructure with bucket setup, access configuration, and a boto3 client wrapper to enable reliable storage and retrieval of raw data, models, and results.
+Implement a unified storage abstraction layer supporting both AWS S3 (production) and local filesystem (development) with a common interface, enabling seamless switching between storage backends without code changes.
 
 **As a** developer  
-**I want** S3 storage configured and accessible  
-**So that** I can store and retrieve raw data, models, and results
+**I want** a unified storage interface that works with both S3 and local filesystem  
+**So that** I can develop locally and deploy to production without code changes
 
 ---
 
 ## ✅ Acceptance Criteria
 
-- [ ] AWS credentials configured (via environment variables or AWS CLI)
+- [ ] Abstract `StorageBackend` interface defined with operations: list, get, put, delete, exists
+- [ ] `S3StorageBackend` implementation with boto3 integration
+- [ ] `LocalStorageBackend` implementation for local filesystem
+- [ ] `StorageFactory` for backend instantiation and configuration-based selection
+- [ ] Storage backend auto-detection based on configuration or path prefix (s3://, file://, relative)
+- [ ] AWS credentials configured (via environment variables or AWS CLI) for S3 backend
 - [ ] S3 bucket created or identified: `prevcarga-bucket-sandbox`
-- [ ] Bucket structure documented (raw_data/, features/, models/, results/, cache/)
-- [ ] boto3 S3 client wrapper created with basic operations (list, get, put, delete)
-- [ ] Connection test script created and passing
-- [ ] S3 configuration module created in `src/storage/`
+- [ ] Local storage base path configurable (default: `./data/`)
+- [ ] Storage structure documented (raw_data/, features/, models/, results/, cache/) for both backends
+- [ ] Connection test script works for both backends
+- [ ] Storage configuration module created in `src/storage/`
+- [ ] CLI can specify storage backend via `--storage-backend` flag or config
 
 ---
 
@@ -55,19 +61,18 @@ Configure AWS S3 storage infrastructure with bucket setup, access configuration,
 
 ### 3. Create Storage Configuration Module
 - [ ] Create `config/storage.yaml` with:
-  - Bucket name
-  - Region
-  - Path prefixes
-  - Timeout settings
-  - Retry configuration
+  - Backend selector (s3 or local)
+  - Common path prefixes (raw_data/, features/, models/, results/, cache/)
+  - S3-specific configuration (bucket, region, timeouts, retry)
+  - Local-specific configuration (base_path, create_dirs)
 - [ ] Create `src/storage/config.py` to load configuration
 - [ ] Implement configuration validation using Pydantic
 - [ ] Add type hints for all configuration fields
+- [ ] Support environment variable override for backend selection
 
-### 4. Implement S3 Client Wrapper
-- [ ] Create `src/storage/s3_client.py`
-- [ ] Implement `S3Client` class with:
-  - `__init__(bucket_name: str, region: str = "us-east-1")`
+### 4. Implement Abstract Storage Backend
+- [ ] Create `src/storage/backend.py` with `StorageBackend` abstract base class
+- [ ] Define interface methods:
   - `list_objects(prefix: str) -> List[str]` - List objects with prefix
   - `get_object(key: str) -> bytes` - Download object
   - `put_object(key: str, data: bytes) -> None` - Upload object
@@ -75,9 +80,34 @@ Configure AWS S3 storage infrastructure with bucket setup, access configuration,
   - `object_exists(key: str) -> bool` - Check if object exists
   - `get_parquet(key: str) -> pd.DataFrame` - Load parquet file
   - `put_parquet(key: str, df: pd.DataFrame) -> None` - Save parquet file
-- [ ] Implement error handling with retries
-- [ ] Add logging for all operations
-- [ ] Add type hints and docstrings
+- [ ] Add type hints and docstrings for interface
+
+### 5. Implement S3 Storage Backend
+- [ ] Create `src/storage/s3_backend.py`
+- [ ] Implement `S3StorageBackend` class extending `StorageBackend`
+- [ ] Initialize with boto3 client and retry configuration
+- [ ] Implement all interface methods using boto3
+- [ ] Add error handling with exponential backoff
+- [ ] Add logging for all S3 operations
+- [ ] Handle S3-specific errors (NoSuchBucket, AccessDenied, NoSuchKey)
+
+### 6. Implement Local Storage Backend
+- [ ] Create `src/storage/local_backend.py`
+- [ ] Implement `LocalStorageBackend` class extending `StorageBackend`
+- [ ] Initialize with base path and auto-create directories option
+- [ ] Implement all interface methods using pathlib
+- [ ] Add error handling for filesystem operations
+- [ ] Add logging for all file operations
+- [ ] Ensure thread-safe file operations
+
+### 7. Implement Storage Factory
+- [ ] Create `src/storage/factory.py`
+- [ ] Implement `StorageFactory` class with:
+  - `create(backend_type: str, **kwargs) -> StorageBackend` - Manual backend creation
+  - `from_config(config_path: str = "config/storage.yaml") -> StorageBackend` - Config-based creation
+  - `from_path(path: str) -> StorageBackend` - Auto-detect from path prefix
+- [ ] Add backend registry for extensibility
+- [ ] Add validation for backend types
 
 ### 5. Create Connection Test Script
 - [ ] Create `scripts/test_s3_connection.py`
@@ -88,16 +118,25 @@ Configure AWS S3 storage infrastructure with bucket setup, access configuration,
 - [ ] Test delete_object operation (cleanup)
 - [ ] Print success/failure messages
 
-### 6. Write Unit Tests
-- [ ] Create `tests/storage/test_s3_client.py`
-- [ ] Test S3Client initialization
-- [ ] Test list_objects with moto (S3 mocking)
-- [ ] Test get_object with moto
-- [ ] Test put_object with moto
-- [ ] Test delete_object with moto
-- [ ] Test object_exists with moto
-- [ ] Test error handling (bucket not found, permission denied)
-- [ ] Add pytest fixtures for mocked S3
+### 8. Write Unit Tests
+- [ ] Create `tests/storage/test_backend_interface.py`
+- [ ] Test `StorageBackend` interface definition
+- [ ] Create `tests/storage/test_s3_backend.py`
+- [ ] Test `S3StorageBackend` initialization
+- [ ] Test S3 operations with moto (list, get, put, delete, exists)
+- [ ] Test S3 parquet operations with moto
+- [ ] Test S3 error handling (bucket not found, permission denied)
+- [ ] Create `tests/storage/test_local_backend.py`
+- [ ] Test `LocalStorageBackend` initialization
+- [ ] Test local operations with tmp_path fixture
+- [ ] Test local parquet operations
+- [ ] Test local error handling (permission denied, path not found)
+- [ ] Create `tests/storage/test_factory.py`
+- [ ] Test `StorageFactory.create()` for both backends
+- [ ] Test `StorageFactory.from_config()`
+- [ ] Test `StorageFactory.from_path()` with different prefixes
+- [ ] Test environment variable override
+- [ ] Add pytest fixtures for mocked S3 and temporary directories
 
 ---
 
@@ -106,16 +145,23 @@ Configure AWS S3 storage infrastructure with bucket setup, access configuration,
 ### config/storage.yaml
 
 ```yaml
+# Storage backend: 's3' or 'local'
+# Can be overridden via environment variable STORAGE_BACKEND
+backend: local  # Use 'local' for development, 's3' for production
+
+# Common paths for all backends
+paths:
+  raw_data: raw_data/
+  features: features/
+  models: models/
+  results: results/
+  cache: cache/
+
+# S3-specific configuration
 s3:
   bucket: prevcarga-bucket-sandbox
   region: us-east-1
-  
-  paths:
-    raw_data: raw_data/
-    features: features/
-    models: models/
-    results: results/
-    cache: cache/
+  prefix: ""  # Optional prefix for all S3 keys
   
   timeouts:
     connect: 5
@@ -124,6 +170,11 @@ s3:
   retry:
     max_attempts: 3
     mode: adaptive
+
+# Local filesystem configuration
+local:
+  base_path: ./data  # Base directory for local storage
+  create_dirs: true  # Auto-create directories if missing
 ```
 
 ### .env.template
@@ -183,9 +234,18 @@ class S3Config(BaseModel):
     retry: S3Retry = Field(default_factory=S3Retry)
 
 
+class LocalConfig(BaseModel):
+    """Local storage configuration."""
+    base_path: str = Field(default="./data", description="Base directory path")
+    create_dirs: bool = Field(default=True, description="Auto-create directories")
+
+
 class StorageConfig(BaseModel):
     """Storage configuration."""
+    backend: str = Field(default="local", description="Storage backend type: 's3' or 'local'")
+    paths: S3Paths
     s3: S3Config
+    local: LocalConfig = Field(default_factory=LocalConfig)
 
 
 def load_storage_config(config_path: str = "config/storage.yaml") -> StorageConfig:
@@ -195,30 +255,81 @@ def load_storage_config(config_path: str = "config/storage.yaml") -> StorageConf
     return StorageConfig(**config_dict)
 ```
 
-### src/storage/s3_client.py (Core Structure)
+### src/storage/backend.py (Abstract Interface)
 
 ```python
-"""S3 client wrapper with basic operations."""
+"""Abstract storage backend interface."""
+from abc import ABC, abstractmethod
+from typing import List
+
+import pandas as pd
+
+
+class StorageBackend(ABC):
+    """Abstract base class for storage backends."""
+    
+    @abstractmethod
+    def list_objects(self, prefix: str = "") -> List[str]:
+        """List objects with given prefix."""
+        pass
+    
+    @abstractmethod
+    def get_object(self, key: str) -> bytes:
+        """Get object from storage."""
+        pass
+    
+    @abstractmethod
+    def put_object(self, key: str, data: bytes) -> None:
+        """Put object to storage."""
+        pass
+    
+    @abstractmethod
+    def delete_object(self, key: str) -> None:
+        """Delete object from storage."""
+        pass
+    
+    @abstractmethod
+    def object_exists(self, key: str) -> bool:
+        """Check if object exists."""
+        pass
+    
+    @abstractmethod
+    def get_parquet(self, key: str) -> pd.DataFrame:
+        """Load parquet file into DataFrame."""
+        pass
+    
+    @abstractmethod
+    def put_parquet(self, key: str, df: pd.DataFrame) -> None:
+        """Save DataFrame as parquet file."""
+        pass
+```
+
+### src/storage/s3_backend.py (S3 Implementation)
+
+```python
+"""S3 storage backend implementation."""
 import logging
 from typing import List, Optional
+import io
 
 import boto3
 import pandas as pd
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
+from src.storage.backend import StorageBackend
 from src.storage.config import load_storage_config
 
 logger = logging.getLogger(__name__)
 
 
-class S3Client:
-    """S3 client wrapper for common operations."""
+class S3StorageBackend(StorageBackend):
+    """S3 storage backend implementation."""
     
-    def __init__(self, bucket_name: Optional[str] = None, region: Optional[str] = None) -> None:
-        """Initialize S3 client."""
+    def __init__(self, bucket: Optional[str] = None, region: Optional[str] = None) -> None:
+        """Initialize S3 storage backend."""
         config = load_storage_config()
-        self.bucket_name = bucket_name or config.s3.bucket
+        self.bucket = bucket or config.s3.bucket
         self.region = region or config.s3.region
         
         # Configure boto3 client with retries
@@ -233,42 +344,183 @@ class S3Client:
         )
         
         self.s3_client = boto3.client("s3", config=boto_config)
-        logger.info(f"S3Client initialized for bucket: {self.bucket_name}")
+        logger.info(f"S3StorageBackend initialized for bucket: {self.bucket}")
     
     def list_objects(self, prefix: str = "") -> List[str]:
         """List objects in bucket with given prefix."""
-        # Implementation here
+        # Implementation using s3_client.list_objects_v2
         pass
     
     def get_object(self, key: str) -> bytes:
         """Get object from S3."""
-        # Implementation here
+        # Implementation using s3_client.get_object
         pass
     
     def put_object(self, key: str, data: bytes) -> None:
         """Put object to S3."""
-        # Implementation here
+        # Implementation using s3_client.put_object
         pass
     
     def delete_object(self, key: str) -> None:
         """Delete object from S3."""
-        # Implementation here
+        # Implementation using s3_client.delete_object
         pass
     
     def object_exists(self, key: str) -> bool:
         """Check if object exists in S3."""
-        # Implementation here
+        # Implementation using s3_client.head_object
         pass
     
     def get_parquet(self, key: str) -> pd.DataFrame:
         """Load parquet file from S3 into DataFrame."""
-        # Implementation here
-        pass
+        data = self.get_object(key)
+        return pd.read_parquet(io.BytesIO(data))
     
     def put_parquet(self, key: str, df: pd.DataFrame) -> None:
         """Save DataFrame as parquet to S3."""
-        # Implementation here
+        buffer = io.BytesIO()
+        df.to_parquet(buffer)
+        self.put_object(key, buffer.getvalue())
+```
+
+### src/storage/local_backend.py (Local Implementation)
+
+```python
+"""Local filesystem storage backend implementation."""
+import logging
+from pathlib import Path
+from typing import List
+
+import pandas as pd
+
+from src.storage.backend import StorageBackend
+
+logger = logging.getLogger(__name__)
+
+
+class LocalStorageBackend(StorageBackend):
+    """Local filesystem storage backend implementation."""
+    
+    def __init__(self, base_path: str = "./data", create_dirs: bool = True) -> None:
+        """Initialize local storage backend."""
+        self.base_path = Path(base_path)
+        if create_dirs:
+            self.base_path.mkdir(parents=True, exist_ok=True)
+        logger.info(f"LocalStorageBackend initialized at: {self.base_path}")
+    
+    def _resolve_path(self, key: str) -> Path:
+        """Resolve key to full path."""
+        return self.base_path / key
+    
+    def list_objects(self, prefix: str = "") -> List[str]:
+        """List files with given prefix."""
+        prefix_path = self._resolve_path(prefix)
+        if prefix_path.is_file():
+            return [prefix]
+        if not prefix_path.exists():
+            return []
+        # Implementation using pathlib.glob
         pass
+    
+    def get_object(self, key: str) -> bytes:
+        """Get file from local storage."""
+        path = self._resolve_path(key)
+        return path.read_bytes()
+    
+    def put_object(self, key: str, data: bytes) -> None:
+        """Put file to local storage."""
+        path = self._resolve_path(key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    
+    def delete_object(self, key: str) -> None:
+        """Delete file from local storage."""
+        path = self._resolve_path(key)
+        if path.exists():
+            path.unlink()
+    
+    def object_exists(self, key: str) -> bool:
+        """Check if file exists."""
+        return self._resolve_path(key).exists()
+    
+    def get_parquet(self, key: str) -> pd.DataFrame:
+        """Load parquet file into DataFrame."""
+        path = self._resolve_path(key)
+        return pd.read_parquet(path)
+    
+    def put_parquet(self, key: str, df: pd.DataFrame) -> None:
+        """Save DataFrame as parquet file."""
+        path = self._resolve_path(key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_parquet(path)
+```
+
+### src/storage/factory.py (Backend Factory)
+
+```python
+"""Storage backend factory."""
+import logging
+import os
+from typing import Optional
+
+from src.storage.backend import StorageBackend
+from src.storage.config import load_storage_config
+from src.storage.s3_backend import S3StorageBackend
+from src.storage.local_backend import LocalStorageBackend
+
+logger = logging.getLogger(__name__)
+
+
+class StorageFactory:
+    """Factory for creating storage backends."""
+    
+    @staticmethod
+    def create(backend_type: str, **kwargs) -> StorageBackend:
+        """Create storage backend by type."""
+        if backend_type == "s3":
+            return S3StorageBackend(**kwargs)
+        elif backend_type == "local":
+            return LocalStorageBackend(**kwargs)
+        else:
+            raise ValueError(f"Unknown backend type: {backend_type}")
+    
+    @staticmethod
+    def from_config(config_path: str = "config/storage.yaml") -> StorageBackend:
+        """Create storage backend from configuration file."""
+        config = load_storage_config(config_path)
+        
+        # Allow environment variable override
+        backend_type = os.getenv("STORAGE_BACKEND", config.backend)
+        
+        logger.info(f"Creating {backend_type} storage backend from config")
+        
+        if backend_type == "s3":
+            return S3StorageBackend(
+                bucket=config.s3.bucket,
+                region=config.s3.region
+            )
+        elif backend_type == "local":
+            return LocalStorageBackend(
+                base_path=config.local.base_path,
+                create_dirs=config.local.create_dirs
+            )
+        else:
+            raise ValueError(f"Unknown backend type in config: {backend_type}")
+    
+    @staticmethod
+    def from_path(path: str) -> StorageBackend:
+        """Auto-detect backend from path prefix."""
+        if path.startswith("s3://"):
+            # Extract bucket from s3://bucket/key
+            bucket = path.split("/")[2]
+            return S3StorageBackend(bucket=bucket)
+        elif path.startswith("file://"):
+            # Extract path from file:///path
+            local_path = path[7:]
+            return LocalStorageBackend(base_path=local_path)
+        else:
+            # Assume local relative path
+            return LocalStorageBackend()
 ```
 
 ---
@@ -281,36 +533,51 @@ class S3Client:
 # Install moto for S3 mocking in tests
 uv add --dev moto[s3]>=4.2.0
 
-# Run connection test script
-python scripts/test_s3_connection.py
+# Run connection test script for both backends
+python scripts/test_storage_connection.py
 
-# Run unit tests
-pytest tests/storage/test_s3_client.py -v
+# Run unit tests for all backends
+pytest tests/storage/test_backends.py -v
 
-# Test S3 client in Python REPL
-python -c "from src.storage.s3_client import S3Client; client = S3Client(); print('S3 OK')"
+# Test storage backends in Python REPL
+python -c "from src.storage.factory import StorageFactory; backend = StorageFactory.create('local'); print('Local storage OK')"
+python -c "from src.storage.factory import StorageFactory; backend = StorageFactory.create('s3', bucket='test'); print('S3 storage OK')"
+python -c "from src.storage.factory import StorageFactory; backend = StorageFactory.from_config(); print('Config-based storage OK')"
 ```
 
 ### Success Criteria
-- [ ] AWS credentials configured correctly
+- [ ] `StorageBackend` interface defined and documented
+- [ ] `S3StorageBackend` implemented and tested
+- [ ] `LocalStorageBackend` implemented and tested
+- [ ] `StorageFactory` creates correct backends
+- [ ] AWS credentials configured correctly for S3
 - [ ] S3 bucket accessible
-- [ ] Connection test script passes
-- [ ] All unit tests pass (with moto mocking)
-- [ ] S3Client can list, get, put, delete objects
-- [ ] Parquet operations work correctly
-- [ ] Error handling works as expected
+- [ ] Local storage directory created automatically
+- [ ] Connection test script passes for both backends
+- [ ] All unit tests pass (S3 with moto mocking, local with temp directories)
+- [ ] Both backends support list, get, put, delete operations
+- [ ] Parquet operations work correctly on both backends
+- [ ] Backend selection via config works
+- [ ] Backend selection via environment variable works
+- [ ] Path-based auto-detection works
+- [ ] Error handling works as expected for both backends
 
 ---
 
 ## 📝 Technical Notes
 
 - Use moto library for mocking S3 in unit tests
+- Use tempfile/tmp_path fixtures for local backend tests
 - Never commit AWS credentials to repository
-- Use structured logging for all S3 operations
-- Implement exponential backoff for retries
+- Use structured logging for all storage operations
+- Implement exponential backoff for S3 retries only
 - Handle common S3 errors (NoSuchBucket, AccessDenied, NoSuchKey)
+- Handle filesystem errors gracefully (PermissionError, FileNotFoundError)
 - Consider using presigned URLs for large file transfers (future)
 - boto3 client is thread-safe and can be reused
+- Abstract interface enables easy addition of new backends (Azure, GCS)
+- Local backend is faster for development and testing
+- Path prefixes (s3://, file://) enable transparent backend selection
 
 ---
 
@@ -332,13 +599,18 @@ python -c "from src.storage.s3_client import S3Client; client = S3Client(); prin
 
 - [ ] All acceptance criteria met
 - [ ] All implementation tasks completed
-- [ ] Configuration files created and documented
-- [ ] S3Client implementation complete with all methods
-- [ ] Connection test script passes
-- [ ] Unit tests pass with >80% coverage
+- [ ] Configuration files created and documented (storage.yaml with both backends)
+- [ ] `StorageBackend` interface defined
+- [ ] `S3StorageBackend` implementation complete with all methods
+- [ ] `LocalStorageBackend` implementation complete with all methods
+- [ ] `StorageFactory` implementation complete
+- [ ] Connection test script passes for both backends
+- [ ] Unit tests pass with >80% coverage for all backends
+- [ ] Integration tests verify backend switching
 - [ ] Code reviewed and approved
-- [ ] Documentation updated in README.md
-- [ ] Ready for Epic-01 data loading
+- [ ] Documentation updated in README.md (both S3 and local setup)
+- [ ] CLI integration documented (--storage-backend flag)
+- [ ] Ready for Epic-01 data loading with unified interface
 
 ---
 

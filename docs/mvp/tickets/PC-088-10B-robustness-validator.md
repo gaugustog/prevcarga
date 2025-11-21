@@ -293,21 +293,23 @@ class SystemRobustnessValidator:
                 resource_impact=self._measure_resource_impact()
             )
     
-    def _test_s3_unavailability(self) -> RobustnessTestResult:
-        """Test handling of temporary S3 unavailability."""
+    def _test_storage_unavailability(self) -> RobustnessTestResult:
+        """Test handling of temporary storage backend unavailability."""
         import time
-        from prevcarga.data.storage import S3Storage
+        from prevcarga.storage.factory import StorageFactory
+        from prevcarga.data.loaders import DataLoader
         
         start_time = time.time()
         
         try:
-            storage = S3Storage()
+            backend = StorageFactory.from_config()
+            loader = DataLoader(storage_backend=backend)
             
-            # Inject S3 unavailability
-            with self.error_injector.inject_s3_failure(duration=5):
+            # Inject storage unavailability (S3 or local access failure)
+            with self.error_injector.inject_storage_failure(duration=5):
                 # Attempt to load data (should retry)
-                data = storage.load_data(
-                    area='01',
+                data = loader.load_carga(
+                    areas=['01'],
                     start_date='2024-01-01',
                     end_date='2024-01-31'
                 )
@@ -318,18 +320,18 @@ class SystemRobustnessValidator:
             recovery_successful = success
             
             return RobustnessTestResult(
-                scenario="s3_temporary_unavailability",
+                scenario="storage_backend_temporary_unavailability",
                 success=success,
                 graceful_degradation=graceful_degradation,
                 recovery_successful=recovery_successful,
-                error_details=None if success else "Failed to recover from S3 failure",
+                error_details=None if success else "Failed to recover from storage failure",
                 execution_time=time.time() - start_time,
                 resource_impact=self._measure_resource_impact()
             )
             
         except Exception as e:
             return RobustnessTestResult(
-                scenario="s3_temporary_unavailability",
+                scenario="storage_backend_temporary_unavailability",
                 success=False,
                 graceful_degradation=False,
                 recovery_successful=False,
@@ -428,11 +430,13 @@ class SystemRobustnessValidator:
     
     def _load_test_data(self) -> pd.DataFrame:
         """Load test data for robustness testing."""
-        from prevcarga.data.storage import S3Storage
+        from prevcarga.storage.factory import StorageFactory
+        from prevcarga.data.loaders import DataLoader
         
-        storage = S3Storage()
-        return storage.load_data(
-            area='01',
+        backend = StorageFactory.from_config()
+        loader = DataLoader(storage_backend=backend)
+        return loader.load_carga(
+            areas=['01'],
             start_date='2024-01-01',
             end_date='2024-01-31'
         )

@@ -32,6 +32,7 @@ Migration from PrevCargaDESSEM system (R) to a unified Python platform that inte
 ┌─────────────────────────────────────────────────────────────────┐
 │                        CLI Python (Click)                        │
 │  Commands: train | predict | backtest | combine | eval-*        │
+│            --storage-backend [s3|local]                          │
 └────────────────────┬────────────────────────────────────────────┘
                      │
         ┌────────────┴────────────┐
@@ -49,7 +50,11 @@ Migration from PrevCargaDESSEM system (R) to a unified Python platform that inte
 └────┬─────┘  └─────┬──────┘  └────┬─────┘
      │              │               │
 ┌────▼──────────────▼───────────────▼─────┐
-│          S3 Storage (Parquet)            │
+│       Storage Backend (Abstract)         │
+│  ┌──────────────┐    ┌────────────────┐ │
+│  │ S3 Backend   │    │ Local Backend  │ │
+│  │ (Production) │    │ (Development)  │ │
+│  └──────────────┘    └────────────────┘ │
 │  raw/ features/ models/ results/         │
 └──────────────────────────────────────────┘
      │              │               │
@@ -61,8 +66,11 @@ Migration from PrevCargaDESSEM system (R) to a unified Python platform that inte
 
 ---
 
-## 📁 S3 Storage Structure
+## 📁 Storage Structure
 
+**Supports both S3 (production) and Local Filesystem (development)**
+
+### S3 Structure
 ```yaml
 s3://prevcarga-bucket-sandbox/
 │
@@ -114,6 +122,54 @@ s3://prevcarga-bucket-sandbox/
         └── temp_predictions/
 ```
 
+### Local Filesystem Structure
+```yaml
+./data/                            # Base path (configurable)
+│
+├── raw_data/                      # Raw data
+│   ├── {year}/
+│   │   ├── {month}/
+│   │   │   ├── carga_horaria_{cod_area}_{YYYYMMDD}.parquet
+│   │   │   ├── temperatura_prevista_{cod_area}_{YYYYMMDD}.parquet
+│   │   │   └── feriados_{year}.parquet
+│
+├── features/                      # Calculated features
+│   ├── {version}/
+│   │   ├── {model}/
+│   │   │   ├── {cod_area}/
+│   │   │   │   ├── train_{YYYYMMDD}.parquet
+│   │   │   │   └── inference_{YYYYMMDD}.parquet
+│
+├── models/                        # Trained models
+│   ├── {model}/
+│   │   ├── {version}/
+│   │   │   ├── metadata.yaml
+│   │   │   ├── model.pkl
+│   │   │   ├── scaler.pkl
+│   │   │   └── feature_names.json
+│   │   └── latest -> v1.2.3_...  # Symlink
+│
+├── results/                       # Forecasts and evaluations
+│   ├── predictions/
+│   │   ├── {execution_date}/
+│   │   │   ├── individual/
+│   │   │   ├── combined/
+│   │   │   └── reconciled/
+│   └── backtests/
+│       ├── {backtest_id}/
+│       │   ├── config.yaml
+│       │   ├── metrics_summary.csv
+│       │   ├── predictions_full.parquet
+│       │   └── report.html
+│
+└── cache/                         # Temporary cache
+    └── {execution_id}/
+        ├── intermediate_features/
+        └── temp_predictions/
+```
+
+**Note:** Both structures use identical relative paths, enabling transparent switching between backends.
+
 ---
 
 ## 🧩 Main Components
@@ -121,19 +177,37 @@ s3://prevcarga-bucket-sandbox/
 ### 1. Data Layer (`src/data/`)
 
 **Responsibilities:**
-- Load raw data from S3 (load, temperature, holidays)
+- Load raw data from any storage backend (load, temperature, holidays)
 - Schema validation (Pydantic)
 - Missing values imputation
 - Filtering by area/period
 - Hourly → semi-hourly conversion
+- Backend-agnostic data operations
 
 **Modules:**
 ```python
 data/
-├── loaders.py          # S3ParquetLoader, LocalLoader
+├── loaders.py          # DataLoader (unified, uses StorageBackend)
 ├── validators.py       # CargaSchema, TemperaturaSchema
 ├── preprocessors.py    # ImputerChain, ResamplerMixin
 └── catalog.py          # DataCatalog (dataset registry)
+```
+
+**Storage Backend Integration:**
+```python
+from src.storage.factory import StorageFactory
+from src.data.loaders import DataLoader
+
+# Auto-detect or explicit backend
+backend = StorageFactory.from_config()  # Uses config.yaml
+# or
+backend = StorageFactory.create("local", base_path="./data")
+# or
+backend = StorageFactory.create("s3", bucket="prevcarga-bucket")
+
+# DataLoader works with any backend
+loader = DataLoader(storage_backend=backend)
+df = loader.load_carga(["RJ", "SP"], start_date, end_date)
 ```
 
 ---
@@ -493,6 +567,7 @@ orchestrator/
 # === TRAINING ===
 prevcarga train \
   --config config.yaml \
+  --storage-backend s3 \
   --areas SECO_RJ,SECO_SP \
   --models lgbm,rf \
   --start-date 2022-01-01 \
@@ -500,15 +575,26 @@ prevcarga train \
   --version 1.2.0 \
   --parallel 8
 
+# === TRAINING (Local Development) ===
+prevcarga train \
+  --config config_dev.yaml \
+  --storage-backend local \
+  --areas SECO_RJ \
+  --models lgbm \
+  --start-date 2024-01-01 \
+  --end-date 2024-12-31 \
+  --version 0.1.0-dev
+
 # === PREDICTION ===
 prevcarga predict \
   --config config.yaml \
+  --storage-backend s3 \
   --date 2025-01-17 \
   --mode intraday \
   --areas all \
   --models all \
   --reconcile \
-  --output-s3 s3://bucket/results/
+  --output results/20250117/
 
 # === BACKTEST ===
 prevcarga backtest \
@@ -645,14 +731,28 @@ project:
 
 # === STORAGE ===
 storage:
-  type: s3
-  bucket: prevcarga-bucket
-  region: us-east-1
+  backend: s3  # Options: 's3' or 'local'
+  
+  # Common paths (relative, work for both backends)
   paths:
     raw_data: raw_data/
     features: features/
     models: models/
     results: results/
+  
+  # S3-specific configuration (used when backend='s3')
+  s3:
+    bucket: prevcarga-bucket
+    region: us-east-1
+    endpoint_url: null  # Optional (for LocalStack/MinIO)
+    connect_timeout: 60
+    read_timeout: 300
+    max_retries: 3
+  
+  # Local filesystem configuration (used when backend='local')
+  local:
+    base_path: ./data  # Absolute or relative to project root
+    create_dirs: true  # Auto-create directories if missing
 
 # === REGIONAL HIERARCHY ===
 regions:
@@ -835,16 +935,19 @@ logging:
 ### **PHASE 0: Initial Setup** (1 week)
 - [ ] Directory structure
 - [ ] Setup uv (fast Python package installer)
-- [ ] S3 configuration (boto3)
+- [ ] Unified storage configuration (StorageBackend abstraction)
+- [ ] S3StorageBackend implementation (boto3)
+- [ ] LocalStorageBackend implementation (pathlib)
+- [ ] StorageFactory (auto-detection and creation)
 - [ ] Structured logging
 - [ ] Local test scripts (pytest runner, linting, formatting)
 
 ### **FASE 1: Data Layer** (2 semanas)
-- [ ] S3 loader (parquet)
-- [ ] Schemas Pydantic
+- [ ] DataLoader (unified, uses StorageBackend)
+- [ ] Schemas Pydantic (backend-agnostic)
 - [ ] Preprocessors (missing, resampling)
-- [ ] Data catalog
-- [ ] Testes unitários
+- [ ] Data catalog (uses StorageBackend for persistence)
+- [ ] Tests for both S3 and local backends
 - [ ] Documentação
 
 ### **FASE 2: Feature Engineering** (3 semanas)

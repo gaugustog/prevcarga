@@ -89,9 +89,9 @@ Create comprehensive operational runbooks for common procedures and troubleshoot
   - [ ] Scaling verification steps
   - [ ] Optimization recommendations
 - [ ] Document "Data Loading Failures" scenario
-  - [ ] S3 access verification
+  - [ ] Storage backend access verification (S3 or local)
   - [ ] Data schema validation
-  - [ ] Network connectivity checks
+  - [ ] Network connectivity checks (for S3)
 
 ### 5. Create Backup and Recovery Runbook
 - [ ] Document what needs to be backed up

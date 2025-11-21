@@ -404,7 +404,7 @@ open htmlcov/index.html  # View coverage in browser
 - All future tickets (should run checks before merging)
 
 **Related:**
-- PC-003-00: S3 Storage Configuration (tests for S3 client)
+- PC-003-00: Unified Storage Configuration (tests for storage backends)
 - PC-004-00: Structured Logging Framework (tests for logger)
 
 ---

@@ -12,7 +12,7 @@
 
 ## 📋 Description
 
-Extend S3ParquetLoader to support loading auxiliary data (temperature forecasts from 4 sources, heat index, and holidays) with multi-format support (Parquet + CSV) and join utilities for combining all data sources.
+Extend DataLoader to support loading auxiliary data (temperature forecasts from 4 sources, heat index, and holidays) with multi-format support (Parquet + CSV), unified storage backend (S3 or local), and join utilities for combining all data sources.
 
 **As a** data pipeline  
 **I want to** load auxiliary data (temperature forecasts, heat index, holidays)  
@@ -39,24 +39,26 @@ Extend S3ParquetLoader to support loading auxiliary data (temperature forecasts 
 
 ## 🔧 Implementation Tasks
 
-### 1. Extend S3ParquetLoader for Temperature D+1/D+2
-- [ ] Add `load_temperatura_d1()` method:
+### 1. Extend DataLoader for Temperature D+1/D+2
+- [ ] Add `load_temperatura_d1()` method to DataLoader:
   - Generate paths: `temperatura_d1_{area}_{YYYYMMDD}.parquet`
-  - Load in parallel
+  - Load in parallel using storage backend
   - Add source column: "D+1"
 - [ ] Add `load_temperatura_d2()` method:
   - Generate paths: `temperatura_d2_{area}_{YYYYMMDD}.parquet`
-  - Load in parallel
+  - Load in parallel using storage backend
   - Add source column: "D+2"
 - [ ] Standardize columns: `[timestamp, cod_area, temp_celsius, source]`
+- [ ] Works with both S3 and local backends
 
 ### 2. Add MultiFormatLoader for CSV Support
-- [ ] Create `MultiFormatLoader` class
-- [ ] Support loading CSV from S3
-- [ ] Support loading Parquet from S3
+- [ ] Create `MultiFormatLoader` class using StorageBackend
+- [ ] Support loading CSV from any backend (S3 or local)
+- [ ] Support loading Parquet from any backend
 - [ ] Auto-detect format from file extension
 - [ ] Parse CSV with pandas
 - [ ] Add encoding support (UTF-8, Latin-1)
+- [ ] Use storage_backend.get_object() for file retrieval
 
 ### 3. Implement Heat Index and ECMWF Temperature Loading
 - [ ] Add `load_heat_index()` method:
@@ -122,14 +124,14 @@ Extend S3ParquetLoader to support loading auxiliary data (temperature forecasts 
 
 ## 💻 Implementation Details
 
-### Extended S3ParquetLoader
+### Extended DataLoader
 
 ```python
 """Extended loader for auxiliary data sources."""
 
 
-class S3ParquetLoader:
-    # ... existing code ...
+class DataLoader:
+    # ... existing code from PC-006-01 ...
     
     def load_temperatura_d1(
         self,
@@ -263,44 +265,40 @@ class S3ParquetLoader:
 
 
 class MultiFormatLoader:
-    """Load data from multiple formats (CSV, Parquet)."""
+    """Load data from multiple formats (CSV, Parquet) using unified storage backend."""
     
-    def __init__(self, bucket: str, region: str) -> None:
-        self.bucket = bucket
-        self.s3_client = boto3.client("s3", region_name=region)
+    def __init__(self, storage_backend: StorageBackend) -> None:
+        self.storage = storage_backend
     
-    def load(self, s3_key: str, format: str = None) -> Optional[pd.DataFrame]:
+    def load(self, storage_path: str, format: str = None) -> Optional[pd.DataFrame]:
         """
-        Load file from S3 in specified format.
+        Load file from any storage backend in specified format.
         
         Args:
-            s3_key: S3 object key
+            storage_path: Path to file (works with both S3 and local)
             format: "csv" or "parquet" (auto-detect if None)
         
         Returns:
             DataFrame or None if not found
         """
         if format is None:
-            format = "parquet" if s3_key.endswith(".parquet") else "csv"
+            format = "parquet" if storage_path.endswith(".parquet") else "csv"
         
         try:
-            response = self.s3_client.get_object(Bucket=self.bucket, Key=s3_key)
-            
             if format == "csv":
-                df = pd.read_csv(response["Body"], encoding="utf-8")
+                # For CSV, read directly from storage backend
+                df = pd.read_csv(io.BytesIO(self.storage.get_object(storage_path)), encoding="utf-8")
             elif format == "parquet":
-                df = pd.read_parquet(response["Body"])
+                df = self.storage.get_parquet(storage_path)
             else:
                 raise ValueError(f"Unsupported format: {format}")
             
-            logger.debug(f"Loaded {len(df)} records from {s3_key} ({format})")
+            logger.debug(f"Loaded {len(df)} records from {storage_path} ({format})")
             return df
             
-        except ClientError as e:
-            if e.response["Error"]["Code"] == "NoSuchKey":
-                logger.warning(f"File not found: s3://{self.bucket}/{s3_key}")
-                return None
-            raise
+        except FileNotFoundError:
+            logger.warning(f"File not found: {storage_path}")
+            return None
 
 
 class DataJoiner:
@@ -397,7 +395,7 @@ def test_load_temperatura_d1():
         Body=df.to_parquet()
     )
     
-    loader = S3ParquetLoader("test-bucket")
+    loader = DataLoader(storage_backend=backend)
     result = loader.load_temperatura_d1(["RJ"], date(2024, 1, 1), date(2024, 1, 1))
     
     assert len(result) == 24
@@ -420,7 +418,8 @@ def test_load_heat_index_csv():
         Body=csv_data.encode()
     )
     
-    loader = S3ParquetLoader("test-bucket")
+    backend = StorageFactory.create("s3", bucket="test-bucket")
+    loader = DataLoader(storage_backend=backend)
     result = loader.load_heat_index(["RJ"], format="csv")
     
     assert len(result) > 0
@@ -454,7 +453,7 @@ def test_data_joiner():
 ## 🔗 Dependencies
 
 **Depends On:**
-- PC-006-01: Load Raw Load Data from S3
+- PC-006-01: Load Raw Load Data from Storage
 - PC-008-01: Preprocess and Impute Missing Data
 
 **Blocks:**
@@ -466,12 +465,12 @@ def test_data_joiner():
 
 - [ ] All acceptance criteria met
 - [ ] All 6 data sources loadable (D+1, D+2, ECMWF, heat index, weighted, holidays)
-- [ ] Multi-format support (CSV + Parquet) working
+- [ ] Multi-format support (CSV + Parquet) working with both backends
 - [ ] DataJoiner utilities implemented
 - [ ] Missing data fallbacks working
-- [ ] Unit tests pass with >80% coverage
-- [ ] Performance test passes (<3s for 1 year all sources)
-- [ ] Integration test with all sources
+- [ ] Unit tests pass with >80% coverage for both S3 and local backends
+- [ ] Performance test passes (<3s for 1 year all sources) on both backends
+- [ ] Integration test with all sources (both backends)
 - [ ] Documentation complete
 - [ ] Code reviewed and approved
 

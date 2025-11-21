@@ -240,7 +240,7 @@ def intraday_predict(ctx, datetime: datetime, data_file: Path,
     click.echo(f"DateTime:        {datetime}")
     click.echo(f"Strategy:        LGBM BLF")
     click.echo(f"Horizon:         D+0 (current day)")
-    click.echo(f"Data source:     {data_file if data_file else 'S3 latest'}")
+    click.echo(f"Data source:     {data_file if data_file else 'Storage backend (latest)'}")
     click.echo()
     
     # Execute intraday prediction

@@ -1,9 +1,9 @@
-# PC-006-01: Load Raw Load Data from S3
+# PC-006-01: Load Raw Load Data from Storage
 
 **Ticket ID:** PC-006-01  
 **Epic:** [Epic-01: Data Infrastructure Layer](../epics/Epic-01.md)  
 **User Story:** US-1.1  
-**Story Points:** 5  
+**Story Points:** 6  
 **Priority:** Critical  
 **Assignee:** TBD  
 **Status:** 📝 To Do
@@ -12,149 +12,143 @@
 
 ## 📋 Description
 
-Implement `S3ParquetLoader` class to load historical electric load data from S3 with support for parallel loading, date/area filtering, and retry logic. This loader serves as the foundation for all data loading operations.
+Implement `DataLoader` class with unified storage backend support to load historical electric load data from either S3 (production) or local filesystem (development) with parallel loading, date/area filtering, and retry logic. This loader serves as the foundation for all data loading operations.
 
 **As a** data scientist  
-**I want to** load historical electric load data from S3  
-**So that** I can use it for model training and evaluation
+**I want to** load historical electric load data from any storage backend (S3 or local)  
+**So that** I can develop locally and deploy to production without code changes
 
 ---
 
 ## ✅ Acceptance Criteria
 
-- [ ] Load Parquet files from S3 paths following pattern: `s3://bucket/raw_data/{year}/{month}/carga_horaria_{cod_area}_{YYYYMMDD}.parquet`
+- [ ] Load Parquet files from unified paths following pattern: `raw_data/{year}/{month}/carga_horaria_{cod_area}_{YYYYMMDD}.parquet`
+- [ ] Auto-detect storage backend from configuration or path prefix (s3://, file://, or relative)
+- [ ] Support S3 backend: `s3://bucket/raw_data/...`
+- [ ] Support local backend: `./data/raw_data/...` or `/absolute/path/raw_data/...`
 - [ ] Support filtering by area codes (e.g., "RJ", "SP", "SECO")
 - [ ] Support filtering by date ranges (start_date, end_date)
 - [ ] Handle missing files gracefully with informative error messages
 - [ ] Return pandas DataFrame with standardized columns: `[timestamp, cod_area, carga_mwh]`
-- [ ] Support batch loading of multiple areas/dates in parallel
-- [ ] Load performance: <5s for 1 year of data (1 area)
+- [ ] Support batch loading of multiple areas/dates in parallel (both backends)
+- [ ] Load performance: <5s for 1 year of data (1 area) on both backends
+- [ ] CLI supports `--storage-backend` flag to override config
 
 ---
 
 ## 🔧 Implementation Tasks
 
-### 1. Create S3ParquetLoader Base Class
+### 1. Create DataLoader Base Class
 - [ ] Create `src/data/loaders.py`
-- [ ] Implement `S3ParquetLoader` class with boto3 integration
-- [ ] Add initialization with bucket name, region, max_workers
-- [ ] Configure S3 client with connection pooling
-- [ ] Add logging for all S3 operations
+- [ ] Implement `DataLoader` class using `StorageBackend` abstraction from Epic-00
+- [ ] Add initialization with optional storage_backend parameter
+- [ ] Default to StorageFactory.from_config() if no backend provided
+- [ ] Configure max_workers for parallel loading
+- [ ] Add logging for all storage operations
 
 ### 2. Implement load_carga() Method
 - [ ] Create method signature: `load_carga(areas: List[str], start_date: date, end_date: date, validate: bool = True) -> pd.DataFrame`
-- [ ] Implement path generation for date range and areas
+- [ ] Implement path generation for date range and areas (backend-agnostic)
 - [ ] Add date range iteration logic
-- [ ] Build S3 key list following naming convention
+- [ ] Build path list following naming convention (works for both S3 and local)
 - [ ] Sort and deduplicate paths
 
 ### 3. Implement Parallel Loading
-- [ ] Use ThreadPoolExecutor for concurrent S3 downloads
-- [ ] Implement `_load_single_parquet()` helper method
-- [ ] Add S3 object retrieval with boto3
-- [ ] Parse Parquet from bytes stream
+- [ ] Use ThreadPoolExecutor for concurrent loading (both backends)
+- [ ] Implement `_load_single_file()` helper method using StorageBackend
+- [ ] Use storage_backend.get_parquet() for retrieval
+- [ ] Handle both S3 and local filesystem transparently
 - [ ] Concatenate DataFrames from multiple files
 - [ ] Sort by area and timestamp
 
 ### 4. Add Error Handling and Retries
-- [ ] Implement exponential backoff for retries (max 3 attempts)
-- [ ] Handle `NoSuchKey` error gracefully (log warning, continue)
-- [ ] Handle `AccessDenied` error (raise with clear message)
-- [ ] Handle network errors with retry logic
-- [ ] Log all errors with context (file path, attempt number)
+- [ ] Implement exponential backoff for retries (S3 backend, max 3 attempts)
+- [ ] Handle file not found gracefully for both backends (log warning, continue)
+- [ ] Handle permission errors (S3: AccessDenied, Local: PermissionError)
+- [ ] Handle network errors with retry logic (S3 only)
+- [ ] Handle filesystem errors for local backend (FileNotFoundError, OSError)
+- [ ] Log all errors with context (file path, backend type, attempt number)
 
 ### 5. Implement Path Generation Utility
-- [ ] Create `_generate_paths()` method
+- [ ] Create `_generate_paths()` method (backend-agnostic)
 - [ ] Support multiple areas
 - [ ] Support date range iteration
-- [ ] Format paths with year/month subdirectories
+- [ ] Format paths with year/month subdirectories (relative paths)
 - [ ] Handle area code normalization (uppercase)
+- [ ] Paths work for both S3 keys and local filesystem
 
 ### 6. Add Performance Optimization
-- [ ] Configure optimal max_workers (default: 4)
-- [ ] Add connection pooling for S3 client
+- [ ] Configure optimal max_workers (default: 4 for both backends)
+- [ ] S3 backend: connection pooling via StorageBackend
+- [ ] Local backend: optimize file I/O
 - [ ] Implement batch size configuration
 - [ ] Add progress logging for large loads
-- [ ] Profile and optimize memory usage
+- [ ] Profile and optimize memory usage for both backends
 
 ### 7. Write Unit Tests
 - [ ] Create `tests/data/test_loaders.py`
-- [ ] Test successful single file load (moto)
-- [ ] Test multiple files parallel load
-- [ ] Test missing file handling
-- [ ] Test date range filtering
-- [ ] Test area filtering
-- [ ] Test retry logic
-- [ ] Test error scenarios (invalid bucket, permissions)
+- [ ] Test successful single file load with S3 backend (moto)
+- [ ] Test successful single file load with local backend (tmp_path fixture)
+- [ ] Test multiple files parallel load (both backends)
+- [ ] Test missing file handling (both backends)
+- [ ] Test date range filtering (both backends)
+- [ ] Test area filtering (both backends)
+- [ ] Test retry logic (S3 backend)
+- [ ] Test error scenarios (S3: invalid bucket/permissions, Local: path not found/permissions)
+- [ ] Test StorageBackend integration
 
 ### 8. Write Performance Tests
-- [ ] Create benchmark for 1 year load (<5s target)
-- [ ] Test concurrent loading efficiency
-- [ ] Profile memory usage
+- [ ] Create benchmark for 1 year load with S3 backend (<5s target)
+- [ ] Create benchmark for 1 year load with local backend (<3s target)
+- [ ] Test concurrent loading efficiency (both backends)
+- [ ] Profile memory usage (both backends)
+- [ ] Compare performance between backends
 - [ ] Document performance characteristics
 
 ---
 
 ## 💻 Implementation Details
 
-### S3ParquetLoader Class Structure
+### DataLoader Class Structure (Unified Storage)
 
 ```python
-"""S3 Parquet data loader with parallel support."""
+"""Unified data loader supporting multiple storage backends."""
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime
 from typing import List, Optional
 
-import boto3
 import pandas as pd
-from botocore.config import Config
-from botocore.exceptions import ClientError
 
-from src.storage.config import load_storage_config
+from src.storage.backend import StorageBackend
+from src.storage.factory import StorageFactory
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-class S3ParquetLoader:
-    """Load Parquet data from S3 with parallel support."""
+class DataLoader:
+    """Load data from any storage backend (S3 or local) with parallel support."""
     
     def __init__(
         self,
-        bucket: Optional[str] = None,
-        region: Optional[str] = None,
+        storage_backend: Optional[StorageBackend] = None,
         max_workers: int = 4
     ) -> None:
         """
-        Initialize S3 Parquet loader.
+        Initialize data loader with storage backend.
         
         Args:
-            bucket: S3 bucket name (uses config if not provided)
-            region: AWS region (uses config if not provided)
-            max_workers: Maximum parallel download threads
+            storage_backend: Storage backend instance. If None, creates from config.
+            max_workers: Maximum parallel loading threads
         """
-        config = load_storage_config()
-        self.bucket = bucket or config.s3.bucket
-        self.region = region or config.s3.region
+        self.storage = storage_backend or StorageFactory.from_config()
         self.max_workers = max_workers
         
-        # Configure boto3 client
-        boto_config = Config(
-            region_name=self.region,
-            connect_timeout=config.s3.timeouts.connect,
-            read_timeout=config.s3.timeouts.read,
-            retries={
-                "max_attempts": config.s3.retry.max_attempts,
-                "mode": config.s3.retry.mode,
-            },
-        )
-        
-        self.s3_client = boto3.client("s3", config=boto_config)
         logger.info(
-            f"S3ParquetLoader initialized: bucket={self.bucket}, "
-            f"region={self.region}, max_workers={self.max_workers}"
+            f"DataLoader initialized: backend={self.storage.__class__.__name__}, "
+            f"max_workers={self.max_workers}"
         )
     
     def load_carga(
@@ -177,24 +171,32 @@ class S3ParquetLoader:
             DataFrame with columns: [timestamp, cod_area, carga_mwh]
         
         Example:
-            >>> loader = S3ParquetLoader()
+            >>> from src.storage.factory import StorageFactory
+            >>> # Use local backend for development
+            >>> backend = StorageFactory.create("local", base_path="./data")
+            >>> loader = DataLoader(storage_backend=backend)
             >>> df = loader.load_carga(["RJ"], date(2024, 1, 1), date(2024, 1, 31))
             >>> print(df.shape)
             (1488, 3)  # 31 days * 48 semi-hourly records
+            
+            >>> # Use S3 backend for production (from config)
+            >>> loader = DataLoader()  # Uses StorageFactory.from_config()
+            >>> df = loader.load_carga(["RJ"], date(2024, 1, 1), date(2024, 1, 31))
         """
         logger.info(
             f"Loading carga data: areas={areas}, "
-            f"date_range={start_date} to {end_date}"
+            f"date_range={start_date} to {end_date}, "
+            f"backend={self.storage.__class__.__name__}"
         )
         
-        # Generate S3 paths
+        # Generate storage paths (backend-agnostic)
         paths = self._generate_paths("carga_horaria", areas, start_date, end_date)
-        logger.debug(f"Generated {len(paths)} S3 paths to load")
+        logger.debug(f"Generated {len(paths)} paths to load")
         
-        # Load in parallel
+        # Load in parallel using storage backend
         start_time = time.time()
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            dfs = list(executor.map(self._load_single_parquet, paths))
+            dfs = list(executor.map(self._load_single_file, paths))
         
         # Filter out None (missing files)
         dfs = [df for df in dfs if df is not None]
@@ -221,52 +223,40 @@ class S3ParquetLoader:
         
         return df
     
-    def _load_single_parquet(self, s3_key: str) -> Optional[pd.DataFrame]:
+    def _load_single_file(self, path: str) -> Optional[pd.DataFrame]:
         """
-        Load single Parquet file with retry logic.
+        Load single Parquet file using storage backend.
         
         Args:
-            s3_key: S3 object key
+            path: Storage path (works for both S3 and local)
         
         Returns:
             DataFrame or None if file not found
         """
-        max_retries = 3
-        
-        for attempt in range(max_retries):
-            try:
-                logger.debug(f"Loading s3://{self.bucket}/{s3_key} (attempt {attempt + 1})")
-                
-                response = self.s3_client.get_object(Bucket=self.bucket, Key=s3_key)
-                df = pd.read_parquet(response["Body"])
-                
-                logger.debug(f"Loaded {len(df)} records from {s3_key}")
-                return df
-                
-            except ClientError as e:
-                error_code = e.response["Error"]["Code"]
-                
-                if error_code == "NoSuchKey":
-                    logger.warning(f"File not found: s3://{self.bucket}/{s3_key}")
-                    return None
-                
-                if error_code == "AccessDenied":
-                    logger.error(f"Access denied: s3://{self.bucket}/{s3_key}")
-                    raise
-                
-                # Retry on other errors
-                if attempt < max_retries - 1:
-                    sleep_time = 2 ** attempt  # Exponential backoff
-                    logger.warning(
-                        f"Error loading {s3_key}: {e}. "
-                        f"Retrying in {sleep_time}s..."
-                    )
-                    time.sleep(sleep_time)
-                else:
-                    logger.error(
-                        f"Failed to load {s3_key} after {max_retries} attempts"
-                    )
-                    raise
+        try:
+            logger.debug(f"Loading {path}")
+            
+            # Use storage backend's get_parquet method
+            # Handles retries internally for S3, direct read for local
+            df = self.storage.get_parquet(path)
+            
+            logger.debug(f"Loaded {len(df)} records from {path}")
+            return df
+            
+        except FileNotFoundError:
+            # Local backend: file not found
+            logger.warning(f"File not found: {path}")
+            return None
+            
+        except Exception as e:
+            # Check if it's an S3 "not found" error
+            if "NoSuchKey" in str(e) or "404" in str(e):
+                logger.warning(f"File not found: {path}")
+                return None
+            
+            # For other errors, log and re-raise
+            logger.error(f"Error loading {path}: {e}")
+            raise
     
     def _generate_paths(
         self,
@@ -350,8 +340,8 @@ from src.data.loaders import S3ParquetLoader
 
 
 @mock_s3
-def test_load_carga_success():
-    """Test successful load of carga data."""
+def test_load_carga_with_s3_backend():
+    """Test successful load of carga data with S3 backend."""
     # Setup mock S3
     s3 = boto3.client("s3", region_name="us-east-1")
     s3.create_bucket(Bucket="test-bucket")
@@ -371,8 +361,10 @@ def test_load_carga_success():
         Body=parquet_bytes
     )
     
-    # Test loader
-    loader = S3ParquetLoader(bucket="test-bucket")
+    # Test loader with S3 backend
+    from src.storage.factory import StorageFactory
+    backend = StorageFactory.create("s3", bucket="test-bucket")
+    loader = DataLoader(storage_backend=backend)
     result = loader.load_carga(
         areas=["RJ"],
         start_date=date(2024, 1, 1),
@@ -385,6 +377,40 @@ def test_load_carga_success():
     assert result["cod_area"].unique()[0] == "RJ"
     assert result["carga_mwh"].min() == 1000
     assert result["carga_mwh"].max() == 1047
+
+
+def test_load_carga_with_local_backend(tmp_path):
+    """Test successful load of carga data with local backend."""
+    # Create test data directory
+    data_dir = tmp_path / "raw_data" / "2024" / "01"
+    data_dir.mkdir(parents=True)
+    
+    # Create test data
+    df = pd.DataFrame({
+        "timestamp": pd.date_range("2024-01-01", periods=48, freq="30T"),
+        "cod_area": "RJ",
+        "carga_mwh": range(1000, 1048)
+    })
+    
+    # Save to local file
+    file_path = data_dir / "carga_horaria_RJ_20240101.parquet"
+    df.to_parquet(file_path)
+    
+    # Test loader with local backend
+    from src.storage.factory import StorageFactory
+    backend = StorageFactory.create("local", base_path=str(tmp_path))
+    loader = DataLoader(storage_backend=backend)
+    result = loader.load_carga(
+        areas=["RJ"],
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 1, 1),
+        validate=False
+    )
+    
+    # Assertions
+    assert len(result) == 48
+    assert result["cod_area"].unique()[0] == "RJ"
+    assert result["carga_mwh"].min() == 1000
 
 
 @mock_s3

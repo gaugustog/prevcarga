@@ -94,7 +94,7 @@ PrevCarga follows a modular, plugin-based architecture that enables:
 ## Architecture Layers
 
 ### 1. Data Layer
-- Raw data loading from S3
+- Raw data loading from any storage backend (S3 or local)
 - Schema validation
 - Data preprocessing and imputation
 - Data catalog management

@@ -291,14 +291,16 @@ class IntegrationTestFramework:
         start_time = time.time()
         
         try:
-            from prevcarga.data.storage import S3Storage
+            from prevcarga.storage.factory import StorageFactory
+            from prevcarga.data.loaders import DataLoader
             from prevcarga.data.validation import DataValidator
             from prevcarga.data.preprocessing import DataPreprocessor
             
             # Load data
-            storage = S3Storage()
-            raw_data = storage.load_data(
-                area='01',
+            backend = StorageFactory.from_config()
+            loader = DataLoader(storage_backend=backend)
+            raw_data = loader.load_carga(
+                areas=['01'],
                 start_date='2024-01-01',
                 end_date='2024-01-31'
             )
@@ -322,7 +324,7 @@ class IntegrationTestFramework:
                 success=success,
                 execution_time=time.time() - start_time,
                 error_details=None,
-                components_tested=['S3Storage', 'DataValidator', 'DataPreprocessor']
+                components_tested=['StorageBackend', 'DataLoader', 'DataValidator', 'DataPreprocessor']
             )
             
         except Exception as e:
@@ -332,7 +334,7 @@ class IntegrationTestFramework:
                 success=False,
                 execution_time=time.time() - start_time,
                 error_details=str(e),
-                components_tested=['S3Storage', 'DataValidator', 'DataPreprocessor']
+                components_tested=['StorageBackend', 'DataLoader', 'DataValidator', 'DataPreprocessor']
             )
     
     def _test_feature_engineering_training(self) -> IntegrationTestResult:

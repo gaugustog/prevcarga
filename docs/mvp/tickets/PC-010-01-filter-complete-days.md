@@ -379,7 +379,7 @@ def test_chronological_validation():
 ## 🔗 Dependencies
 
 **Depends On:**
-- PC-006-01: Load Raw Load Data from S3
+- PC-006-01: Load Raw Load Data from Storage
 - PC-008-01: Preprocess and Impute Missing Data
 
 **Blocks:**
