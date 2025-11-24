@@ -6,7 +6,8 @@
     "PC-001-00-repository-structure-setup",
     "PC-002-00-python-environment-uv",
     "PC-003-00-s3-storage-configuration",
-    "PC-004-00-structured-logging-framework"
+    "PC-004-00-structured-logging-framework",
+    "PC-005-00-local-test-scripts"
   ],
   "total_implementation_time_minutes": 0,
   "mode": "autonomous",

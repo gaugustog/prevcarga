@@ -69,12 +69,20 @@
       "notes": ""
     },
     "PC-005-00-local-test-scripts": {
-      "status": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "attempts": 0,
+      "status": "completed",
+      "started_at": "2025-11-24T12:43:20.606055+00:00",
+      "completed_at": "2025-11-24T12:46:38.088137+00:00",
+      "attempts": 1,
       "last_error": null,
-      "validation_results": null,
+      "validation_results": {
+        "test_sh": "pass",
+        "lint_sh": "pass",
+        "format_sh": "pass",
+        "check_all_sh": "pass",
+        "sample_tests": "pass",
+        "tests_passed": "104/104",
+        "coverage": "80%"
+      },
       "git_commits": [],
       "notes": ""
     },
@@ -1131,11 +1139,11 @@
   },
   "summary": {
     "total": 110,
-    "pending": 106,
+    "pending": 105,
     "in_progress": 0,
-    "completed": 4,
+    "completed": 5,
     "blocked": 0,
     "failed": 0
   },
-  "last_updated": "2025-11-24T12:42:44.332998+00:00"
+  "last_updated": "2025-11-24T12:46:38.088137+00:00"
 }

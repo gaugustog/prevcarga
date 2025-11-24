@@ -19,19 +19,19 @@ Example:
 import logging
 import logging.config
 import os
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Generator, Optional
+from typing import Any
 
 import yaml
-
 
 _logging_initialized = False
 
 
 def setup_logging(
     config_path: str = "config/logging.yaml",
-    log_level: Optional[str] = None,
+    log_level: str | None = None,
 ) -> None:
     """Set up logging configuration from YAML file.
 
@@ -43,7 +43,7 @@ def setup_logging(
         The logs directory is automatically created if it doesn't exist.
         If the config file is not found, falls back to basic console logging.
     """
-    global _logging_initialized
+    global _logging_initialized  # noqa: PLW0603
 
     # Ensure logs directory exists
     log_dir = Path("logs")
@@ -100,7 +100,7 @@ def get_logger(name: str) -> logging.Logger:
         logger.error("Error occurred", exc_info=True)
         ```
     """
-    global _logging_initialized
+    global _logging_initialized  # noqa: PLW0602
 
     if not _logging_initialized:
         log_level = os.getenv("LOG_LEVEL")
@@ -134,7 +134,7 @@ class LogContext:
         """
         self.logger = logger
         self.context = context
-        self._old_factory: Optional[Any] = None
+        self._old_factory: Any | None = None
 
     def __enter__(self) -> logging.Logger:
         """Enter context and add context fields to logger."""
@@ -155,9 +155,9 @@ class LogContext:
 
     def __exit__(
         self,
-        exc_type: Optional[type],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[Any],
+        exc_type: type | None,
+        exc_val: BaseException | None,
+        exc_tb: Any | None,
     ) -> None:
         """Exit context and restore original factory."""
         if self._old_factory is not None:
@@ -191,7 +191,7 @@ def log_context(logger: logging.Logger, **context: Any) -> Generator[logging.Log
 
 def configure_module_logger(
     module_name: str,
-    level: Optional[str] = None,
+    level: str | None = None,
 ) -> logging.Logger:
     """Configure and return a logger for a specific module.
 

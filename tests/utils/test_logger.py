@@ -2,7 +2,6 @@
 
 import json
 import logging
-import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -38,7 +37,7 @@ class TestGetLogger:
         logger_module._logging_initialized = False
         monkeypatch.setenv("LOG_LEVEL", "WARNING")
 
-        logger = logger_module.get_logger("env_test")
+        logger_module.get_logger("env_test")
 
         # Logger should be configured
         assert logger_module._logging_initialized is True
@@ -258,6 +257,6 @@ class TestLoggingIntegration:
             assert len(captured_records) == 1
             record = captured_records[0]
             assert record.exc_info is not None
-            assert record.exc_info[0] == ValueError
+            assert record.exc_info[0] is ValueError
         finally:
             logger.removeHandler(handler)

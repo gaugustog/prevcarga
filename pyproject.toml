@@ -124,12 +124,14 @@ no_implicit_reexport = true
 
 [[tool.mypy.overrides]]
 module = [
+    "yaml.*",
     "scipy.*",
     "lightgbm.*",
     "optuna.*",
     "shap.*",
     "statsmodels.*",
     "moto.*",
+    "botocore.*",
 ]
 ignore_missing_imports = true
 

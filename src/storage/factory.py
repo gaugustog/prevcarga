@@ -148,6 +148,7 @@ class StorageFactory:
         Raises:
             ValueError: If the backend type in config is unknown.
         """
+        backend: StorageBackend
         if config.backend == "s3":
             backend = S3StorageBackend.from_config(config.s3)
         elif config.backend == "local":

@@ -76,7 +76,7 @@ class S3StorageBackend(StorageBackend):
         boto_config = BotoConfig(
             connect_timeout=connect_timeout,
             read_timeout=read_timeout,
-            retries={
+            retries={  # type: ignore[arg-type]
                 "max_attempts": max_retry_attempts,
                 "mode": retry_mode,
             },
