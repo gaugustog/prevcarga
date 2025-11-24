@@ -10,12 +10,18 @@ Available plugins:
       including bridge days, pre/post holiday indicators, and days until holiday.
     - LagFeaturesPlugin: Generates lag (autoregressive) features and rolling
       statistics for time series forecasting.
+    - CyclicalEncodingPlugin: Generates cyclical sin/cos encodings for periodic
+      features like hour, day of week, and month.
 """
 
 from src.features.plugins.calendar import (
     BrazilianHolidays,
     CalendarFeaturesConfig,
     CalendarFeaturesPlugin,
+)
+from src.features.plugins.cyclical import (
+    CyclicalEncodingConfig,
+    CyclicalEncodingPlugin,
 )
 from src.features.plugins.lag import (
     LagFeaturesConfig,
@@ -30,6 +36,8 @@ __all__: list[str] = [
     "BrazilianHolidays",
     "CalendarFeaturesConfig",
     "CalendarFeaturesPlugin",
+    "CyclicalEncodingConfig",
+    "CyclicalEncodingPlugin",
     "LagFeaturesConfig",
     "LagFeaturesPlugin",
     "TemporalFeaturesConfig",

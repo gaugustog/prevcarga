@@ -75,6 +75,10 @@ from src.features.plugins.calendar import (
     CalendarFeaturesConfig,
     CalendarFeaturesPlugin,
 )
+from src.features.plugins.cyclical import (
+    CyclicalEncodingConfig,
+    CyclicalEncodingPlugin,
+)
 from src.features.plugins.lag import (
     LagFeaturesConfig,
     LagFeaturesPlugin,
@@ -98,6 +102,8 @@ __all__ = [
     "BrazilianHolidays",
     "CalendarFeaturesConfig",
     "CalendarFeaturesPlugin",
+    "CyclicalEncodingConfig",
+    "CyclicalEncodingPlugin",
     "DuplicatePluginError",
     "FeatureNameCollisionError",
     "FeatureUtilsError",
