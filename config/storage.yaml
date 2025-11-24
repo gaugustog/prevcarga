@@ -1,0 +1,56 @@
+# PrevCarga Storage Configuration
+#
+# This file configures the storage backend for the PrevCarga forecasting system.
+# The system supports both S3 (AWS) and local filesystem storage.
+#
+# Environment variables can be used in paths with ${VAR} syntax.
+
+# Active storage backend: 's3' or 'local'
+backend: local
+
+# Standard paths for different data types
+# These paths are relative to the base_path (local) or prefix (S3)
+paths:
+  raw_data: raw_data/
+  features: features/
+  models: models/
+  results: results/
+  cache: cache/
+
+# S3 storage configuration
+# Used when backend is set to 's3'
+s3:
+  # S3 bucket name (3-63 characters, lowercase)
+  bucket: prevcarga-data
+
+  # AWS region (sa-east-1 is Sao Paulo for Brazilian data)
+  region: sa-east-1
+
+  # Key prefix for all objects (optional)
+  prefix: ""
+
+  # Custom endpoint URL (for MinIO, LocalStack, or S3-compatible services)
+  # Leave null for standard AWS S3
+  endpoint_url: null
+
+  # Connection and read timeouts in seconds
+  timeouts:
+    connect_timeout: 10.0
+    read_timeout: 30.0
+
+  # Retry configuration for failed operations
+  retry:
+    # Maximum number of retry attempts (1-10)
+    max_attempts: 3
+    # Retry mode: 'standard' or 'adaptive'
+    mode: standard
+
+# Local filesystem storage configuration
+# Used when backend is set to 'local'
+local:
+  # Base directory for all storage operations
+  # Supports environment variables: ${HOME}/data, ${PREVCARGA_DATA_DIR}, etc.
+  base_path: ./data
+
+  # Whether to create directories automatically when storing files
+  create_dirs: true
