@@ -87,6 +87,17 @@ from src.features.plugins.temporal import (
     TemporalFeaturesConfig,
     TemporalFeaturesPlugin,
 )
+from src.features.pipeline import (
+    FeatureCollisionError,
+    FeaturePipeline,
+    PipelineConfig,
+    PipelineConfigError,
+    PipelineError,
+    PipelineExecutionError,
+    PipelineResult,
+    PluginExecutionResult,
+    PluginStep,
+)
 from src.features.utils import (
     FeatureNameCollisionError,
     FeatureUtilsError,
@@ -98,29 +109,50 @@ from src.features.utils import (
 )
 
 __all__ = [
+    # Base plugin
     "BaseFeaturePlugin",
+    # Calendar plugin
     "BrazilianHolidays",
     "CalendarFeaturesConfig",
     "CalendarFeaturesPlugin",
+    # Cyclical plugin
     "CyclicalEncodingConfig",
     "CyclicalEncodingPlugin",
+    # Registry errors
     "DuplicatePluginError",
-    "FeatureNameCollisionError",
-    "FeatureUtilsError",
-    "FeatureValidator",
-    "InvalidIndexError",
     "InvalidPluginNameError",
     "InvalidVersionError",
-    "LagFeaturesConfig",
-    "LagFeaturesPlugin",
-    "PluginConfig",
     "PluginNotFoundError",
-    "PluginRegistry",
     "PluginRegistryError",
-    "TemporalFeaturesConfig",
-    "TemporalFeaturesPlugin",
+    # Pipeline
+    "FeatureCollisionError",
+    "FeaturePipeline",
+    "PipelineConfig",
+    "PipelineConfigError",
+    "PipelineError",
+    "PipelineExecutionError",
+    "PipelineResult",
+    "PluginExecutionResult",
+    "PluginStep",
+    # Utils errors
+    "FeatureNameCollisionError",
+    "FeatureUtilsError",
+    "InvalidIndexError",
+    # Validator
+    "FeatureValidator",
     "ValidationReport",
     "ValidationResult",
+    # Lag plugin
+    "LagFeaturesConfig",
+    "LagFeaturesPlugin",
+    # Config
+    "PluginConfig",
+    # Registry
+    "PluginRegistry",
+    # Temporal plugin
+    "TemporalFeaturesConfig",
+    "TemporalFeaturesPlugin",
+    # Utility functions
     "check_feature_names",
     "get_feature_statistics",
     "get_plugin",
