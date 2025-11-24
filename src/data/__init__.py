@@ -41,6 +41,12 @@ Example:
     ```
 """
 
+from src.data.catalog import (
+    CatalogError,
+    DataCatalog,
+    DatasetMetadata,
+    DatasetNotFoundError,
+)
 from src.data.loaders import DataLoader
 from src.data.preprocessors import (
     BackwardFillImputer,
@@ -69,6 +75,11 @@ from src.data.validators import (
 )
 
 __all__ = [
+    # Catalog
+    "CatalogError",
+    "DataCatalog",
+    "DatasetMetadata",
+    "DatasetNotFoundError",
     # Imputers (preprocessors)
     "BackwardFillImputer",
     "BaseImputer",
