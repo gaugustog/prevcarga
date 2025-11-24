@@ -75,6 +75,10 @@ from src.features.plugins.calendar import (
     CalendarFeaturesConfig,
     CalendarFeaturesPlugin,
 )
+from src.features.plugins.lag import (
+    LagFeaturesConfig,
+    LagFeaturesPlugin,
+)
 from src.features.plugins.temporal import (
     TemporalFeaturesConfig,
     TemporalFeaturesPlugin,
@@ -101,6 +105,8 @@ __all__ = [
     "InvalidIndexError",
     "InvalidPluginNameError",
     "InvalidVersionError",
+    "LagFeaturesConfig",
+    "LagFeaturesPlugin",
     "PluginConfig",
     "PluginNotFoundError",
     "PluginRegistry",
