@@ -2,7 +2,7 @@
 
 This module provides the core data loading functionality for the PrevCarga
 system, including loaders for raw electric load data from various storage
-backends, as well as validation schemas and utilities.
+backends, as well as validation schemas, utilities, and preprocessing tools.
 
 Example:
     ```python
@@ -25,10 +25,34 @@ Example:
     validator = DataValidator(CargaSchema)
     validated_df, report = validator.validate(df)
     report.log_summary()
+
+    # Impute missing values using triple-pass algorithm
+    from src.data import TriplePassImputer
+    imputer = TriplePassImputer(date_col="timestamp")
+    df = imputer.fit_transform(df, value_col="load")
+
+    # Or chain multiple imputers
+    from src.data import ImputerChain, ForwardFillImputer, InterpolationImputer
+    chain = ImputerChain([
+        ForwardFillImputer(limit=2),
+        InterpolationImputer(method="linear"),
+    ])
+    df = chain.fit_transform(df, value_col="load")
     ```
 """
 
 from src.data.loaders import DataLoader
+from src.data.preprocessors import (
+    BackwardFillImputer,
+    BaseImputer,
+    ForwardFillImputer,
+    ImputerChain,
+    InterpolationImputer,
+    LagFillImputer,
+    ResamplerMixin,
+    TimezoneHandler,
+    TriplePassImputer,
+)
 from src.data.utils import DateRangeGenerator
 from src.data.validators import (
     VALID_AREAS,
@@ -45,11 +69,24 @@ from src.data.validators import (
 )
 
 __all__ = [
+    # Imputers (preprocessors)
+    "BackwardFillImputer",
+    "BaseImputer",
+    "ForwardFillImputer",
+    "ImputerChain",
+    "InterpolationImputer",
+    "LagFillImputer",
+    "ResamplerMixin",
+    "TimezoneHandler",
+    "TriplePassImputer",
+    # Loaders
+    "DataLoader",
+    # Utilities
+    "DateRangeGenerator",
+    # Validators
     "VALID_AREAS",
     "CargaSchema",
-    "DataLoader",
     "DataValidator",
-    "DateRangeGenerator",
     "DuplicateDetector",
     "FeriadoSchema",
     "HeatIndexSchema",

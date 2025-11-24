@@ -5,8 +5,9 @@ This file is automatically loaded by pytest and provides fixtures
 that can be used across all test modules.
 """
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 
 @pytest.fixture
