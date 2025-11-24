@@ -70,6 +70,11 @@ from src.features.registry import (
     get_plugin,
     register_plugin,
 )
+from src.features.plugins.calendar import (
+    BrazilianHolidays,
+    CalendarFeaturesConfig,
+    CalendarFeaturesPlugin,
+)
 from src.features.plugins.temporal import (
     TemporalFeaturesConfig,
     TemporalFeaturesPlugin,
@@ -86,6 +91,9 @@ from src.features.utils import (
 
 __all__ = [
     "BaseFeaturePlugin",
+    "BrazilianHolidays",
+    "CalendarFeaturesConfig",
+    "CalendarFeaturesPlugin",
     "DuplicatePluginError",
     "FeatureNameCollisionError",
     "FeatureUtilsError",

@@ -224,12 +224,20 @@
       "notes": ""
     },
     "PC-014-02A-calendar-holiday-features-plugin": {
-      "status": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "attempts": 0,
+      "status": "completed",
+      "started_at": "2025-11-24T15:16:49.818785+00:00",
+      "completed_at": "2025-11-24T15:31:48.074375+00:00",
+      "attempts": 1,
       "last_error": null,
-      "validation_results": null,
+      "validation_results": {
+        "brazilian_holidays": "pass",
+        "movable_holidays": "pass",
+        "bridge_days": "pass",
+        "pre_post_indicators": "pass",
+        "days_until_holiday": "pass",
+        "tests_passed": "84/84",
+        "coverage": "97%"
+      },
       "git_commits": [],
       "notes": ""
     },

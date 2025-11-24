@@ -1,11 +1,12 @@
 {
   "session_id": "63e52360",
   "started_at": "2025-11-24T14:19:14.142809+00:00",
-  "current_ticket": "PC-013-02A-temporal-features-plugin",
+  "current_ticket": "PC-014-02A-calendar-holiday-features-plugin",
   "tickets_completed_this_session": [
     "PC-011-01-load-auxiliary-data",
     "PC-012-02A-plugin-architecture-foundation",
-    "PC-013-02A-temporal-features-plugin"
+    "PC-013-02A-temporal-features-plugin",
+    "PC-014-02A-calendar-holiday-features-plugin"
   ],
   "total_implementation_time_minutes": 0,
   "mode": "autonomous",
