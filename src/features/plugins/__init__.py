@@ -37,6 +37,10 @@ from src.features.plugins.temporal import (
     TemporalFeaturesConfig,
     TemporalFeaturesPlugin,
 )
+from src.features.plugins.wavelet import (
+    WaveletTransformConfig,
+    WaveletTransformPlugin,
+)
 
 __all__: list[str] = [
     "BrazilianHolidays",
@@ -50,4 +54,6 @@ __all__: list[str] = [
     "LoessSmoothingPlugin",
     "TemporalFeaturesConfig",
     "TemporalFeaturesPlugin",
+    "WaveletTransformConfig",
+    "WaveletTransformPlugin",
 ]

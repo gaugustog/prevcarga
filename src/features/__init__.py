@@ -91,6 +91,10 @@ from src.features.plugins.temporal import (
     TemporalFeaturesConfig,
     TemporalFeaturesPlugin,
 )
+from src.features.plugins.wavelet import (
+    WaveletTransformConfig,
+    WaveletTransformPlugin,
+)
 from src.features.pipeline import (
     FeatureCollisionError,
     FeaturePipeline,
@@ -159,6 +163,9 @@ __all__ = [
     # Temporal plugin
     "TemporalFeaturesConfig",
     "TemporalFeaturesPlugin",
+    # Wavelet transform plugin
+    "WaveletTransformConfig",
+    "WaveletTransformPlugin",
     # Utility functions
     "check_feature_names",
     "get_feature_statistics",
