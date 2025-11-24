@@ -3,7 +3,8 @@
   "started_at": "2025-11-24T13:08:12.550563+00:00",
   "current_ticket": null,
   "tickets_completed_this_session": [
-    "PC-006-01-load-raw-data-from-s3"
+    "PC-006-01-load-raw-data-from-s3",
+    "PC-007-01-validate-data-schemas"
   ],
   "total_implementation_time_minutes": 0,
   "mode": "autonomous",
