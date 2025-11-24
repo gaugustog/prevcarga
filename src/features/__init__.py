@@ -70,6 +70,10 @@ from src.features.registry import (
     get_plugin,
     register_plugin,
 )
+from src.features.plugins.temporal import (
+    TemporalFeaturesConfig,
+    TemporalFeaturesPlugin,
+)
 from src.features.utils import (
     FeatureNameCollisionError,
     FeatureUtilsError,
@@ -93,6 +97,8 @@ __all__ = [
     "PluginNotFoundError",
     "PluginRegistry",
     "PluginRegistryError",
+    "TemporalFeaturesConfig",
+    "TemporalFeaturesPlugin",
     "ValidationReport",
     "ValidationResult",
     "check_feature_names",
