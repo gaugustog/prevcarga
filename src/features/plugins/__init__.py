@@ -12,6 +12,8 @@ Available plugins:
       statistics for time series forecasting.
     - CyclicalEncodingPlugin: Generates cyclical sin/cos encodings for periodic
       features like hour, day of week, and month.
+    - LoessSmoothingPlugin: Generates smoothed features using LOESS regression
+      for trend extraction and residual analysis.
 """
 
 from src.features.plugins.calendar import (
@@ -27,6 +29,10 @@ from src.features.plugins.lag import (
     LagFeaturesConfig,
     LagFeaturesPlugin,
 )
+from src.features.plugins.smoothing import (
+    LoessSmoothingConfig,
+    LoessSmoothingPlugin,
+)
 from src.features.plugins.temporal import (
     TemporalFeaturesConfig,
     TemporalFeaturesPlugin,
@@ -40,6 +46,8 @@ __all__: list[str] = [
     "CyclicalEncodingPlugin",
     "LagFeaturesConfig",
     "LagFeaturesPlugin",
+    "LoessSmoothingConfig",
+    "LoessSmoothingPlugin",
     "TemporalFeaturesConfig",
     "TemporalFeaturesPlugin",
 ]

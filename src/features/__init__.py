@@ -83,6 +83,10 @@ from src.features.plugins.lag import (
     LagFeaturesConfig,
     LagFeaturesPlugin,
 )
+from src.features.plugins.smoothing import (
+    LoessSmoothingConfig,
+    LoessSmoothingPlugin,
+)
 from src.features.plugins.temporal import (
     TemporalFeaturesConfig,
     TemporalFeaturesPlugin,
@@ -145,6 +149,9 @@ __all__ = [
     # Lag plugin
     "LagFeaturesConfig",
     "LagFeaturesPlugin",
+    # LOESS smoothing plugin
+    "LoessSmoothingConfig",
+    "LoessSmoothingPlugin",
     # Config
     "PluginConfig",
     # Registry
