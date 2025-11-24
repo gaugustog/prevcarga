@@ -87,12 +87,18 @@
       "notes": ""
     },
     "PC-006-01-load-raw-data-from-s3": {
-      "status": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "attempts": 0,
+      "status": "completed",
+      "started_at": "2025-11-24T13:14:29.649263+00:00",
+      "completed_at": "2025-11-24T13:14:40.133927+00:00",
+      "attempts": 1,
       "last_error": null,
-      "validation_results": null,
+      "validation_results": {
+        "data_loader": "pass",
+        "date_range_generator": "pass",
+        "parallel_loading": "pass",
+        "tests_passed": "28/28",
+        "coverage": "95%"
+      },
       "git_commits": [],
       "notes": ""
     },
@@ -1139,11 +1145,11 @@
   },
   "summary": {
     "total": 110,
-    "pending": 105,
+    "pending": 104,
     "in_progress": 0,
-    "completed": 5,
+    "completed": 6,
     "blocked": 0,
     "failed": 0
   },
-  "last_updated": "2025-11-24T12:46:38.088137+00:00"
+  "last_updated": "2025-11-24T13:14:40.133927+00:00"
 }

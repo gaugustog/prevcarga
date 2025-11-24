@@ -1,7 +1,7 @@
-# Data directories
-data/
-old-data-structure/
-logs/
+# Data directories (root level only, not src/data/)
+/data/
+/old-data-structure/
+/logs/
 
 # Python
 __pycache__/
