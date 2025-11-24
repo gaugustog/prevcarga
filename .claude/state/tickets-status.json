@@ -171,12 +171,20 @@
       "notes": ""
     },
     "PC-011-01-load-auxiliary-data": {
-      "status": "pending",
-      "started_at": null,
-      "completed_at": null,
-      "attempts": 0,
+      "status": "completed",
+      "started_at": "2025-11-24T14:20:05.500237+00:00",
+      "completed_at": "2025-11-24T14:32:18.058777+00:00",
+      "attempts": 1,
       "last_error": null,
-      "validation_results": null,
+      "validation_results": {
+        "temperatura_loaders": "pass",
+        "heat_index_loader": "pass",
+        "holiday_loader": "pass",
+        "multi_format_loader": "pass",
+        "data_joiner": "pass",
+        "tests_passed": "69/69",
+        "coverage": "90%"
+      },
       "git_commits": [],
       "notes": ""
     },

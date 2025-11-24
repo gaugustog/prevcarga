@@ -54,7 +54,14 @@ from src.data.filters import (
     FilterConfig,
     FilteringReport,
 )
-from src.data.loaders import DataLoader
+from src.data.loaders import (
+    DataJoiner,
+    DataLoader,
+    HEAT_INDEX_OUTPUT_COLUMNS,
+    HOLIDAY_OUTPUT_COLUMNS,
+    MultiFormatLoader,
+    TEMPERATURE_OUTPUT_COLUMNS,
+)
 from src.data.preprocessors import (
     BackwardFillImputer,
     BaseImputer,
@@ -104,7 +111,12 @@ __all__ = [
     "TimezoneHandler",
     "TriplePassImputer",
     # Loaders
+    "DataJoiner",
     "DataLoader",
+    "HEAT_INDEX_OUTPUT_COLUMNS",
+    "HOLIDAY_OUTPUT_COLUMNS",
+    "MultiFormatLoader",
+    "TEMPERATURE_OUTPUT_COLUMNS",
     # Utilities
     "DateRangeGenerator",
     # Validators
