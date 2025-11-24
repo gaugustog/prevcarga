@@ -16,6 +16,10 @@ Available plugins:
       for trend extraction and residual analysis.
 """
 
+from src.features.plugins.blf import (
+    BLFStrategyConfig,
+    BLFStrategyPlugin,
+)
 from src.features.plugins.calendar import (
     BrazilianHolidays,
     CalendarFeaturesConfig,
@@ -43,6 +47,8 @@ from src.features.plugins.wavelet import (
 )
 
 __all__: list[str] = [
+    "BLFStrategyConfig",
+    "BLFStrategyPlugin",
     "BrazilianHolidays",
     "CalendarFeaturesConfig",
     "CalendarFeaturesPlugin",

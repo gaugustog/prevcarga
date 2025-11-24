@@ -70,6 +70,10 @@ from src.features.registry import (
     get_plugin,
     register_plugin,
 )
+from src.features.plugins.blf import (
+    BLFStrategyConfig,
+    BLFStrategyPlugin,
+)
 from src.features.plugins.calendar import (
     BrazilianHolidays,
     CalendarFeaturesConfig,
@@ -119,6 +123,9 @@ from src.features.utils import (
 __all__ = [
     # Base plugin
     "BaseFeaturePlugin",
+    # BLF strategy plugin
+    "BLFStrategyConfig",
+    "BLFStrategyPlugin",
     # Calendar plugin
     "BrazilianHolidays",
     "CalendarFeaturesConfig",
