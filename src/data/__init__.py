@@ -47,6 +47,13 @@ from src.data.catalog import (
     DatasetMetadata,
     DatasetNotFoundError,
 )
+from src.data.filters import (
+    ChronologicalValidator,
+    CompleteDayFilter,
+    DuplicateHandler,
+    FilterConfig,
+    FilteringReport,
+)
 from src.data.loaders import DataLoader
 from src.data.preprocessors import (
     BackwardFillImputer,
@@ -80,6 +87,12 @@ __all__ = [
     "DataCatalog",
     "DatasetMetadata",
     "DatasetNotFoundError",
+    # Filters
+    "ChronologicalValidator",
+    "CompleteDayFilter",
+    "DuplicateHandler",
+    "FilterConfig",
+    "FilteringReport",
     # Imputers (preprocessors)
     "BackwardFillImputer",
     "BaseImputer",
