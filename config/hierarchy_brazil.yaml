@@ -1,0 +1,127 @@
+# Brazilian Electric Grid Hierarchy Configuration
+#
+# This configuration defines the hierarchical structure for electric load
+# forecasting reconciliation in the Brazilian interconnected system (SIN).
+#
+# Structure:
+# - National (1 node): Total Brazil demand
+# - Subsystems (4 nodes): SE (Southeast/Midwest), S (South), NE (Northeast), N (North)
+# - Areas (17 nodes): Individual consumption areas
+# - Losses (4 nodes): System transmission losses (calculated)
+
+hierarchy:
+  # National level - root of the hierarchy
+  national:
+    name: "BR_National"
+    children: ["SE", "S", "NE", "N"]
+
+  # Subsystem level - 4 main grid regions
+  subsystems:
+    SE:
+      name: "SE"
+      children: ["Area_SP", "Area_RJ", "Area_MG", "Area_ES", "Area_GO"]
+    S:
+      name: "S"
+      children: ["Area_PR", "Area_SC", "Area_RS"]
+    NE:
+      name: "NE"
+      children: ["Area_BA", "Area_PE", "Area_CE", "Area_PI", "Area_MA", "Area_RN"]
+    N:
+      name: "N"
+      children: ["Area_PA", "Area_AM", "Area_AC"]
+
+  # Area level - 17 consumption areas (bottom level)
+  areas:
+    # Southeast/Midwest subsystem (5 areas)
+    Area_SP:
+      name: "Area_SP"
+      type: "consumption"
+    Area_RJ:
+      name: "Area_RJ"
+      type: "consumption"
+    Area_MG:
+      name: "Area_MG"
+      type: "consumption"
+    Area_ES:
+      name: "Area_ES"
+      type: "consumption"
+    Area_GO:
+      name: "Area_GO"
+      type: "consumption"
+
+    # South subsystem (3 areas)
+    Area_PR:
+      name: "Area_PR"
+      type: "consumption"
+    Area_SC:
+      name: "Area_SC"
+      type: "consumption"
+    Area_RS:
+      name: "Area_RS"
+      type: "consumption"
+
+    # Northeast subsystem (6 areas)
+    Area_BA:
+      name: "Area_BA"
+      type: "consumption"
+    Area_PE:
+      name: "Area_PE"
+      type: "consumption"
+    Area_CE:
+      name: "Area_CE"
+      type: "consumption"
+    Area_PI:
+      name: "Area_PI"
+      type: "consumption"
+    Area_MA:
+      name: "Area_MA"
+      type: "consumption"
+    Area_RN:
+      name: "Area_RN"
+      type: "consumption"
+
+    # North subsystem (3 areas)
+    Area_PA:
+      name: "Area_PA"
+      type: "consumption"
+    Area_AM:
+      name: "Area_AM"
+      type: "consumption"
+    Area_AC:
+      name: "Area_AC"
+      type: "consumption"
+
+  # Loss components (calculated, not forecasted)
+  losses:
+    Loss_SE:
+      name: "Loss_SE"
+      level: 1
+      calculation: "difference"
+    Loss_S:
+      name: "Loss_S"
+      level: 1
+      calculation: "difference"
+    Loss_NE:
+      name: "Loss_NE"
+      level: 1
+      calculation: "difference"
+    Loss_N:
+      name: "Loss_N"
+      level: 1
+      calculation: "difference"
+
+# Constraints configuration
+constraints:
+  # Energy conservation constraint
+  energy_conservation:
+    enabled: true
+    tolerance: 0.001  # 0.1% tolerance
+
+  # Non-negativity constraint for forecasts
+  non_negativity:
+    enabled: true
+
+  # Bounds on forecast values (MW)
+  bounds:
+    min_load: 0
+    max_load: 100000
