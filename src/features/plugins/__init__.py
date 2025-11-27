@@ -14,6 +14,10 @@ Available plugins:
       features like hour, day of week, and month.
     - LoessSmoothingPlugin: Generates smoothed features using LOESS regression
       for trend extraction and residual analysis.
+    - RFFeatureSelectorPlugin: Performs Random Forest-based feature selection
+      with horizon-aware leakage prevention for multi-horizon forecasting.
+    - SeasonalityPlugin: Generates seasonal decomposition features using STL/MSTL
+      for extracting trend, seasonal patterns, and residuals.
 """
 
 from src.features.plugins.blf import (
@@ -32,6 +36,14 @@ from src.features.plugins.cyclical import (
 from src.features.plugins.lag import (
     LagFeaturesConfig,
     LagFeaturesPlugin,
+)
+from src.features.plugins.rf_selector import (
+    RFFeatureSelectorConfig,
+    RFFeatureSelectorPlugin,
+)
+from src.features.plugins.seasonality import (
+    SeasonalityConfig,
+    SeasonalityPlugin,
 )
 from src.features.plugins.smoothing import (
     LoessSmoothingConfig,
@@ -58,6 +70,10 @@ __all__: list[str] = [
     "LagFeaturesPlugin",
     "LoessSmoothingConfig",
     "LoessSmoothingPlugin",
+    "RFFeatureSelectorConfig",
+    "RFFeatureSelectorPlugin",
+    "SeasonalityConfig",
+    "SeasonalityPlugin",
     "TemporalFeaturesConfig",
     "TemporalFeaturesPlugin",
     "WaveletTransformConfig",

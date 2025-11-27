@@ -5,6 +5,7 @@ feature engineering architecture, including abstract base classes,
 configuration models, and validators.
 """
 
+from src.features.base.advanced_plugin import AdvancedFeaturePlugin
 from src.features.base.config import PluginConfig
 from src.features.base.plugin import BaseFeaturePlugin
 from src.features.base.validator import (
@@ -14,6 +15,7 @@ from src.features.base.validator import (
 )
 
 __all__ = [
+    "AdvancedFeaturePlugin",
     "BaseFeaturePlugin",
     "FeatureValidator",
     "PluginConfig",
