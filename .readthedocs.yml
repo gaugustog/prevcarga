@@ -1,0 +1,40 @@
+# Read the Docs configuration file
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+version: 2
+
+# Set the OS, Python version, and other tools you might need
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.11"
+  jobs:
+    pre_build:
+      # Install project dependencies for autodoc
+      - pip install -e .
+
+# Build documentation in the "docs/sphinx/source" directory with Sphinx
+sphinx:
+  configuration: docs/sphinx/source/conf.py
+  builder: html
+  fail_on_warning: false
+
+# Build formats
+formats:
+  - pdf
+  - epub
+
+# Python requirements for documentation
+python:
+  install:
+    - requirements: docs/sphinx/requirements.txt
+    - method: pip
+      path: .
+      extra_requirements:
+        - docs
+
+# Submodules configuration
+submodules:
+  include: []
+  exclude: all
+  recursive: true

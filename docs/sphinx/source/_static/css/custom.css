@@ -1,0 +1,108 @@
+/* Custom CSS for PrevCarga Documentation */
+
+/* Brand colors */
+:root {
+    --prevcarga-primary: #2980B9;
+    --prevcarga-secondary: #1ABC9C;
+    --prevcarga-accent: #E74C3C;
+    --prevcarga-dark: #2C3E50;
+    --prevcarga-light: #ECF0F1;
+}
+
+/* Header styling */
+.wy-side-nav-search {
+    background-color: var(--prevcarga-primary);
+}
+
+.wy-side-nav-search > a {
+    color: white;
+}
+
+/* Link colors */
+a {
+    color: var(--prevcarga-primary);
+}
+
+a:hover {
+    color: var(--prevcarga-secondary);
+}
+
+/* Code block styling */
+.highlight {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+}
+
+/* Note and warning boxes */
+.admonition.note {
+    background-color: #e7f3fe;
+    border-left: 4px solid var(--prevcarga-primary);
+}
+
+.admonition.warning {
+    background-color: #fff3cd;
+    border-left: 4px solid #ffc107;
+}
+
+.admonition.danger {
+    background-color: #f8d7da;
+    border-left: 4px solid var(--prevcarga-accent);
+}
+
+/* Table styling */
+table.docutils {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+table.docutils th {
+    background-color: var(--prevcarga-primary);
+    color: white;
+    padding: 8px 12px;
+}
+
+table.docutils td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #ddd;
+}
+
+/* API documentation styling */
+.py.class,
+.py.function,
+.py.method {
+    border-left: 3px solid var(--prevcarga-secondary);
+    padding-left: 10px;
+    margin-bottom: 20px;
+}
+
+/* Navigation depth styling */
+.wy-menu-vertical li.toctree-l1 > a {
+    font-weight: bold;
+}
+
+.wy-menu-vertical li.toctree-l2 > a {
+    padding-left: 2em;
+}
+
+/* Mobile responsiveness improvements */
+@media screen and (max-width: 768px) {
+    .wy-nav-content {
+        padding: 1em;
+    }
+
+    .highlight {
+        font-size: 0.85em;
+    }
+}
+
+/* Print styling */
+@media print {
+    .wy-nav-side {
+        display: none;
+    }
+
+    .wy-nav-content-wrap {
+        margin-left: 0;
+    }
+}

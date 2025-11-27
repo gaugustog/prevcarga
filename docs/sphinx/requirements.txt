@@ -1,0 +1,20 @@
+# Documentation dependencies for PrevCarga
+# Install with: pip install -r docs/sphinx/requirements.txt
+
+# Core Sphinx
+sphinx>=7.2.0,<8.0.0
+
+# Theme
+sphinx-rtd-theme>=2.0.0,<3.0.0
+
+# Markdown support
+myst-parser>=2.0.0,<4.0.0
+
+# Type hints in documentation
+sphinx-autodoc-typehints>=1.25.0,<3.0.0
+
+# Live reload during development (optional)
+sphinx-autobuild>=2024.0.0
+
+# Copy button for code blocks (optional)
+sphinx-copybutton>=0.5.0
