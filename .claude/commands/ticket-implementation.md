@@ -3,11 +3,11 @@
 Implement a specific ticket from the PrevCarga backlog.
 
 ## Arguments
-- `$ARGUMENTS` - Ticket ID to implement (e.g., `PC-001`, `PC-001-00-repository-structure-setup`)
+- `$ARGUMENTS` - Ticket ID to implement (e.g., `PC-001`, `PC-001-01-data-loader-r6-class`)
 
 ## Task
 
-Implement the specified ticket following the PrevCarga development standards.
+Implement the specified ticket following the PrevCarga R development standards.
 
 ### 1. Load Ticket Information
 - Parse ticket ID from arguments: `$ARGUMENTS`
@@ -50,18 +50,18 @@ Extract from ticket file:
 
 #### 4.2 Create/Modify Files
 Following the implementation tasks:
-- Create new files as specified
+- Create new files as specified in `R/` directory
 - Modify existing files if needed
 - Follow patterns from `.claude/templates/validation-rules.md`:
-  - Plugin pattern for features/models
-  - Registry pattern for discovery
-  - Factory pattern for storage
-  - Pydantic for configuration
+  - R6 class pattern for all components
+  - Registry pattern for plugin discovery
+  - Factory pattern for storage backends
+  - checkmate for input validation
 
 #### 4.3 Write Tests
-For each new component:
-- Create corresponding test file in `tests/`
-- Write unit tests covering:
+For each new R6 class or function:
+- Create corresponding test file in `tests/testthat/`
+- Write unit tests using testthat covering:
   - Happy path
   - Edge cases
   - Error conditions
@@ -72,20 +72,20 @@ For each new component:
 Run all quality checks:
 
 ```bash
-# Run tests
-pytest tests/ -v --tb=short
+# Run R CMD check
+R CMD check . --no-manual --as-cran
+
+# Run tests with testthat
+Rscript -e "testthat::test_local(reporter = 'summary')"
 
 # Check coverage
-pytest tests/ --cov=src --cov-report=term-missing
+Rscript -e "covr::package_coverage(type = 'tests')"
 
-# Lint check
-ruff check src/ tests/
+# Lint check with lintr
+Rscript -e "lintr::lint_package()"
 
-# Format check
-black --check src/ tests/
-
-# Type check
-mypy src/ --strict
+# Check documentation
+Rscript -e "devtools::document(); devtools::check_man()"
 ```
 
 ### 6. Handle Validation Results
@@ -98,7 +98,7 @@ mypy src/ --strict
 
 #### Some Fail
 - Attempt to fix issues (up to 3 attempts total)
-- If lint/format issues: auto-fix with `ruff --fix` and `black`
+- If lint issues: review and fix manually (lintr has no auto-fix)
 - If test failures: analyze and fix
 - If coverage low: add more tests
 - If max attempts reached: mark as `failed`, log error
@@ -124,10 +124,11 @@ On success:
   "status": "completed",
   "completed_at": "2025-01-17T10:30:00Z",
   "validation_results": {
+    "r_cmd_check_passed": true,
     "tests_passed": true,
     "coverage": 78,
     "lint_passed": true,
-    "type_check_passed": true
+    "documentation_complete": true
   },
   "git_commits": ["abc123"]
 }
@@ -138,7 +139,7 @@ On failure:
 {
   "status": "failed",
   "attempts": 3,
-  "last_error": "Test test_xyz failed: AssertionError at line 45"
+  "last_error": "Test test_data_loader failed: Error in test_that() at line 45"
 }
 ```
 
@@ -147,27 +148,27 @@ On failure:
 During implementation:
 ```
 ═══════════════════════════════════════════════════════════════════
-         IMPLEMENTING: PC-025-03-model-interface
+         IMPLEMENTING: PC-016-03-base-model
 ═══════════════════════════════════════════════════════════════════
 
-📋 Ticket: Model Interface
-📦 Epic: 03 - End-to-End Models
-📊 Points: 5
+📋 Ticket: BaseModel Abstract Class
+📦 Epic: 03 - Model Layer Infrastructure
+📊 Effort: 1.5 days
 ⏱️  Started: 10:00:00
 
 Dependencies:
-  ✅ PC-016-02A-feature-plugin-interface
+  ✅ PC-009-02-base-feature-plugin
 
 Progress:
   [████████████░░░░░░░░] 60%
 
 Current Task:
-  ▶ Writing BaseModel abstract class...
+  ▶ Writing BaseModel R6 class...
 
 Files Modified:
-  ✓ src/models/__init__.py (created)
-  ✓ src/models/base.py (created)
-  ▶ tests/unit/test_models/test_base.py (in progress)
+  ✓ R/models/base.R (created)
+  ✓ R/models/registry.R (created)
+  ▶ tests/testthat/test-models-base.R (in progress)
 
 ═══════════════════════════════════════════════════════════════════
 ```
@@ -175,33 +176,34 @@ Files Modified:
 On completion:
 ```
 ═══════════════════════════════════════════════════════════════════
-         ✅ COMPLETED: PC-025-03-model-interface
+         ✅ COMPLETED: PC-016-03-base-model
 ═══════════════════════════════════════════════════════════════════
 
 Duration: 12 minutes
 Attempts: 1
 
 Validation Results:
+  ✅ R CMD check: 0 errors, 0 warnings, 0 notes
   ✅ Tests: 8 passed, 0 failed
   ✅ Coverage: 82% (threshold: 70%)
   ✅ Linting: No issues
-  ✅ Type Check: No errors
+  ✅ Documentation: Complete
 
 Files Created/Modified:
-  + src/models/__init__.py
-  + src/models/base.py
-  + tests/unit/test_models/__init__.py
-  + tests/unit/test_models/test_base.py
+  + R/models/base.R
+  + R/models/registry.R
+  + tests/testthat/test-models-base.R
+  ~ NAMESPACE (updated)
 
 Git Commit: abc123def
-  feat(models): implement BaseModel abstract interface
+  feat(models): implement BaseModel R6 abstract class
 
 Now Unblocked:
-  - PC-026-03-model-registry
-  - PC-027-03-lgbm-model
-  - PC-030-03-random-forest-model
+  - PC-017-03-model-registry
+  - PC-019-03-model-artifact
+  - PC-020-03-universal-trainer
 
-Next suggested: /ticket-implementation PC-026
+Next suggested: /ticket-implementation PC-017
 ═══════════════════════════════════════════════════════════════════
 ```
 
@@ -216,24 +218,26 @@ Could not find ticket spec for: PC-999
 Expected location: docs/mvp/tickets/PC-999-*.md
 
 Available tickets matching 'PC-99*':
-  - PC-099-...
+  - PC-099-12-sphinx-documentation-site
 
 Run /implementation-status to see all available tickets.
 ```
 
 If dependencies not met:
 ```
-🚫 Cannot implement: PC-025-03-model-interface
+🚫 Cannot implement: PC-016-03-base-model
 
 Missing dependencies:
-  ⬜ PC-016-02A-feature-plugin-interface (pending)
+  ⬜ PC-009-02-base-feature-plugin (pending)
 
 Implement dependencies first:
-  /ticket-implementation PC-016
+  /ticket-implementation PC-009
 ```
 
 ## Notes
 - Always read the full ticket spec before implementing
-- Follow existing code patterns in the codebase
+- Follow existing code patterns in the R/ directory
+- Use R6 classes for all major components
+- Use roxygen2 comments for documentation
 - Ask for clarification if ticket spec is ambiguous
 - Create atomic commits (one commit per ticket)

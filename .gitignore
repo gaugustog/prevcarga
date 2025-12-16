@@ -2,6 +2,9 @@
 data/
 old-data-structure/
 
+# Legacy code (local only)
+docs/legacy/
+
 # Python
 __pycache__/
 *.py[cod]

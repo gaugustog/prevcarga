@@ -1,6 +1,6 @@
 # Reset Ticket State
 
-Reset one or more tickets to a previous state.
+Reset one or more tickets to a previous state in PrevCarga R.
 
 ## Arguments
 - `$ARGUMENTS` - Ticket ID(s) to reset, or "all" for full reset
@@ -12,9 +12,9 @@ Reset ticket status for re-implementation or state recovery.
 ### 1. Parse Arguments
 
 Handle different input formats:
-- Single ticket: `PC-001` or `PC-001-00-repository-structure-setup`
+- Single ticket: `PC-001` or `PC-001-01-data-loader-r6-class`
 - Multiple tickets: `PC-001 PC-002 PC-003`
-- Epic reset: `epic:00` (reset all Epic-00 tickets)
+- Epic reset: `epic:01` (reset all Epic-01 tickets)
 - Full reset: `all`
 
 ### 2. Confirm Reset Operation
@@ -27,10 +27,10 @@ Handle different input formats:
 
 You are about to reset the following ticket(s):
 
-  PC-004-00-s3-storage-implementation
+  PC-004-01-missing-value-imputation
   ├── Current Status: failed
   ├── Attempts: 3
-  ├── Last Error: moto mock configuration error
+  ├── Last Error: testthat test_impute_linear failed
   └── Files Modified: 4
 
 This will:
@@ -50,23 +50,23 @@ Confirm reset? [y/N]
                      EPIC RESET CONFIRMATION
 ═══════════════════════════════════════════════════════════════════
 
-You are about to reset all tickets in Epic-00:
+You are about to reset all tickets in Epic-01:
 
 Tickets to Reset (8):
-  ✅ PC-001-00-repository-structure-setup (completed)
-  ✅ PC-002-00-uv-environment-setup (completed)
-  ✅ PC-003-00-storage-backend-abstraction (completed)
-  ❌ PC-004-00-s3-storage-implementation (failed)
-  ⬜ PC-005-00-local-storage-implementation (pending)
-  ✅ PC-006-00-logging-configuration (completed)
-  ⬜ PC-007-00-configuration-management (pending)
-  ⬜ PC-008-00-pydantic-schemas (pending)
+  ✅ PC-001-01-data-loader-r6-class (completed)
+  ✅ PC-002-01-hive-partitioning-utilities (completed)
+  ✅ PC-003-01-schema-validators (completed)
+  ❌ PC-004-01-missing-value-imputation (failed)
+  ⬜ PC-005-01-resampling (pending)
+  ✅ PC-006-01-data-catalog (completed)
+  ⬜ PC-007-01-area-codes (pending)
+  ⬜ PC-008-01-data-layer-tests (pending)
 
 ⚠️  WARNING: This will also affect dependent tickets!
-    Resetting Epic-00 will cascade to:
-    - Epic-01: 12 tickets will become BLOCKED
-    - Epic-02A: 10 tickets will become BLOCKED
-    - Total affected: 85+ tickets
+    Resetting Epic-01 will cascade to:
+    - Epic-02: 7 tickets will become BLOCKED
+    - Epic-03: 8 tickets will become BLOCKED
+    - Total affected: 80+ tickets
 
 Confirm epic reset? [y/N]
 ═══════════════════════════════════════════════════════════════════
@@ -80,12 +80,12 @@ Confirm epic reset? [y/N]
 
 You are about to reset ALL tickets in the system!
 
-Current Progress: 62/113 (55%)
-Completed Tickets: 62
+Current Progress: 58/106 (55%)
+Completed Tickets: 58
 Implementation Time: ~18.5 hours
 
 This will:
-  ✓ Reset all 113 tickets to 'pending'
+  ✓ Reset all 106 tickets to 'pending'
   ✓ Clear all attempt counts and errors
   ✓ Clear implementation log
   ✗ NOT revert any file changes
@@ -101,7 +101,7 @@ Update `.claude/state/tickets-status.json`:
 
 ```json
 {
-  "PC-004-00-s3-storage-implementation": {
+  "PC-004-01-missing-value-imputation": {
     "status": "pending",
     "started_at": null,
     "completed_at": null,
@@ -118,22 +118,34 @@ Update `.claude/state/tickets-status.json`:
 
 If resetting a completed ticket, cascade to dependents:
 
-```python
-def cascade_reset(ticket_id):
-    # Reset the ticket itself
-    reset_ticket(ticket_id)
+```r
+cascade_reset <- function(ticket_id, tickets_status, dependency_graph) {
+  # Reset the ticket itself
+  tickets_status <- reset_ticket(ticket_id, tickets_status)
 
-    # Find all tickets that depend on this one
-    dependents = get_dependents(ticket_id)
+  # Find all tickets that depend on this one
+  dependents <- get_dependents(ticket_id, dependency_graph)
 
-    for dependent in dependents:
-        if dependent.status == 'completed':
-            # Mark as needing re-validation
-            dependent.notes = f"May need re-validation: {ticket_id} was reset"
-        elif dependent.status == 'in_progress':
-            # Block it since dependency is no longer met
-            dependent.status = 'blocked'
-            dependent.notes = f"Blocked: dependency {ticket_id} was reset"
+  for (dependent in dependents) {
+    if (dependent$status == "completed") {
+      # Mark as needing re-validation
+      dependent$notes <- sprintf(
+        "May need re-validation: %s was reset",
+        ticket_id
+      )
+    } else if (dependent$status == "in_progress") {
+      # Block it since dependency is no longer met
+      dependent$status <- "blocked"
+      dependent$notes <- sprintf(
+        "Blocked: dependency %s was reset",
+        ticket_id
+      )
+    }
+    tickets_status[[dependent$id]] <- dependent
+  }
+
+  tickets_status
+}
 ```
 
 ### 5. Optional: Git Revert
@@ -147,8 +159,8 @@ Offer to revert associated git commits:
 
 The following git commits are associated with PC-004:
 
-  abc123 feat(storage): implement S3StorageBackend
-  def456 test(storage): add S3 storage tests
+  abc123 feat(data): implement missing value imputation
+  def456 test(data): add imputation tests
 
 Would you like to revert these commits? [y/N]
 
@@ -173,7 +185,7 @@ Append to `.claude/state/implementation-log.md`:
 ```markdown
 ### Reset Operation (2025-01-17 15:30:00)
 
-**Tickets Reset**: PC-004-00-s3-storage-implementation
+**Tickets Reset**: PC-004-01-missing-value-imputation
 **Previous Status**: failed (3 attempts)
 **Reason**: User requested reset for re-implementation
 **Git Reverted**: No
@@ -189,7 +201,7 @@ Append to `.claude/state/implementation-log.md`:
 
 Reset Summary:
   Tickets Reset: 1
-  └── PC-004-00-s3-storage-implementation
+  └── PC-004-01-missing-value-imputation
 
 New Status:
   PC-004: pending (was: failed)
@@ -223,7 +235,7 @@ Examples:
 ```
 /reset-ticket-state PC-004                    # Simple reset
 /reset-ticket-state PC-004 --hard             # Reset + git revert
-/reset-ticket-state epic:00 --cascade         # Reset epic and dependents
+/reset-ticket-state epic:01 --cascade         # Reset epic and dependents
 /reset-ticket-state all --dry-run             # Preview full reset
 ```
 
