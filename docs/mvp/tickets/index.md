@@ -15,6 +15,16 @@ PC-{NNN}-{EE}-{description}.md
 
 ## Tickets by Epic
 
+### EPIC-00: Initial Setup
+
+| Ticket | Title | Priority | Effort | Status |
+|--------|-------|----------|--------|--------|
+| [PC-000-00](PC-000-00-initial-setup.md) | Initial Setup - R Package Infrastructure | Critical | 5 days | Pending |
+
+**Total Effort:** ~5 days (1 week)
+
+---
+
 ### EPIC-01: Data Layer
 
 | Ticket | Title | Priority | Effort | Status |

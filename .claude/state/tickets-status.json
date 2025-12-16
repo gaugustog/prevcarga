@@ -1,5 +1,15 @@
 {
   "tickets": {
+    "PC-000-00-initial-setup": {
+      "status": "pending",
+      "started_at": null,
+      "completed_at": null,
+      "attempts": 0,
+      "last_error": null,
+      "validation_results": null,
+      "git_commits": [],
+      "notes": null
+    },
     "PC-001-01-data-loader-r6-class": {
       "status": "pending",
       "started_at": null,
@@ -1062,12 +1072,12 @@
     }
   },
   "summary": {
-    "total": 106,
-    "pending": 106,
+    "total": 107,
+    "pending": 107,
     "in_progress": 0,
     "completed": 0,
     "failed": 0,
     "blocked": 0
   },
-  "last_updated": "2025-12-09T00:00:00Z"
+  "last_updated": "2025-12-16T00:00:00Z"
 }
